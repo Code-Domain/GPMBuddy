@@ -44,6 +44,7 @@ export default function App() {
         <Route path="/gpbuddy" element={<GPBuddyPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/super-admin" element={<AdminPanel />} />
 
         {/* Standard Pages with Navbar and Footer */}
         <Route element={<StandardLayout />}>
@@ -79,6 +80,8 @@ function DynamicRouter() {
       navigate("/login", { replace: true });
     } else if (pageName === "admin") {
       navigate("/admin", { replace: true });
+    } else if (pageName === "super-admin") {
+      navigate("/super-admin", { replace: true });
     }
     
   }, [pageName, navigate]);

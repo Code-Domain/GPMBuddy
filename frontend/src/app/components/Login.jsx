@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { loginAdmin } from "../../services/authService";
 
 const Login = () => {
@@ -29,12 +29,10 @@ const Login = () => {
 
   const onNavigate = (path) => {
     if (path === "home") navigate("/");
-    if (path === "admin") navigate("/admin");
+    else if (path === "admin") navigate("/admin");
+    else if (path === "super-admin") navigate("/super-admin");
     else if (path.startsWith("dept-")) navigate(`/dept/${path}`);
     else navigate(`/${path}`);
-
-    setMobileOpen(false);
-    setDeptOpen(false);
   };
 
   const handleSubmit = async (e) => {
@@ -89,7 +87,7 @@ const Login = () => {
 
       console.log("Login successful:", { admin });
 
-      onNavigate("admin");
+      onNavigate(role === "super_admin" ? "super-admin" : "admin");
 
     } catch (error) {
 
