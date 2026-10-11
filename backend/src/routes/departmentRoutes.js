@@ -6,6 +6,7 @@ const authenticate = require("../middleware/authenticateMiddlewares");
 const isSuperAdmin = require("../middleware/authorizeSuperAdminMiddlewares");
 
 router.get("/", authenticate, isSuperAdmin, departmentControllers.getDepartments);
+// router.get("/", authenticate, departmentControllers.getDepartments);
 router.get("/find/:departmentInput", departmentControllers.findDepartment);
 router.get("/id/:id", departmentControllers.getDepartmentsById);
 // router.get("/name/:name", departmentControllers.getDepartmentsByName);
