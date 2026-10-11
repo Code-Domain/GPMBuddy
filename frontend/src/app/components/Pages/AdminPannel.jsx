@@ -130,17 +130,6 @@ const asArray = (response) => {
 };
 
 const getId = (item) => item?._id || item?.id;
-const cacheDepartment = (department) => {
-  if (!department || !getId(department)) return;
-  try {
-    const cached = JSON.parse(localStorage.getItem("gpm-admin-departments") || "[]");
-    const list = Array.isArray(cached) ? cached : [];
-    localStorage.setItem("gpm-admin-departments", JSON.stringify([
-      department,
-      ...list.filter((item) => String(getId(item)) !== String(getId(department))),
-    ]));
-  } catch { localStorage.setItem("gpm-admin-departments", JSON.stringify([department])); }
-};
 
 const initialForm = (section, record) => {
   let source = record || {};
@@ -167,7 +156,7 @@ const initialForm = (section, record) => {
     };
   }
   const result = {};
-  CONFIG[section].fields.forEach(([key]) => {
+  CONFIG[section].fields.forEach(([key, , type]) => {
     if (section === "admins" && record && key === "password") {
       result[key] = "";
       return;
@@ -175,7 +164,9 @@ const initialForm = (section, record) => {
     let value = source?.[key];
     if (["department", "principal", "headOfDepartment"].includes(key) && value && typeof value === "object") value = value._id || value.code || value.name || "";
     if (Array.isArray(value)) {
-      result[key] = value.map((entry) => typeof entry === "string" ? entry : entry.description || "").join("\n");
+      result[key] = type === "list"
+        ? value.map((entry) => typeof entry === "string" ? entry : entry.description || "")
+        : value.map((entry) => typeof entry === "string" ? entry : entry.description || "").join("\n");
     } else if (key === "date" && value) {
       result[key] = new Date(value).toISOString().slice(0, 10);
     } else {
@@ -190,10 +181,9 @@ const makePayload = (section, form, profile) => {
   CONFIG[section].fields.forEach(([key, , type]) => {
     if (type === "number") payload[key] = payload[key] === "" ? undefined : Number(payload[key]);
     if (type === "list") {
-      const list = String(payload[key] || "").split("\n").map((item) => item.trim()).filter(Boolean);
-      payload[key] = ["mission", "peo", "po", "pso"].includes(key)
-        ? list.map((description) => ({ description }))
-        : list;
+      const value = payload[key];
+      payload[key] = (Array.isArray(value) ? value : String(value || "").split("\n"))
+        .map((item) => String(item).trim()).filter(Boolean);
     }
     if (type === "json") {
       try {
@@ -279,10 +269,9 @@ export default function AdminPanel() {
       phone: savedProfile.phone || "",
     });
     const urls = {
-      events: "/events", faculties: "/faculty", facilities: "/facility",
+      departments: "/department", events: "/events", faculties: "/faculty", facilities: "/facility",
       subjects: "/subject", aboutUs: "/about", uploads: "/uploads",
     };
-    if (current.role === "super_admin") urls.departments = "/department";
     if (current.role === "super_admin") urls.admins = "/admin";
     const results = await Promise.allSettled(Object.entries(urls).map(async ([key, url]) => {
       const response = await api.get(url);
@@ -306,37 +295,14 @@ export default function AdminPanel() {
         const [key, data] = result.value;
         next[key] = data;
       } else {
-        failures.push(`${Object.keys(urls)[index]}: ${result.reason?.response?.data?.message || result.reason?.message || "could not load"}`);
+        const key = Object.keys(urls)[index];
+        const status = result.reason?.response?.status;
+        const message = key === "departments" && status === 403
+          ? "The backend denied the department database request (403)."
+          : result.reason?.response?.data?.message || result.reason?.message || "could not load";
+        failures.push(`${key}: ${message}`);
       }
     });
-    const linkedDepartments = [...next.faculties, ...next.facilities].map((item) => item.department).filter(Boolean);
-    const departmentInputs = [
-      ...linkedDepartments.flatMap((item) => typeof item === "object" ? [item.code, item.name] : [item]),
-      ...next.subjects.flatMap((item) => Array.isArray(item.departments) ? item.departments : []),
-      ...next.admins.map((item) => item.department),
-      current.department,
-    ].map((item) => String(item || "").trim()).filter(Boolean);
-    const departmentLookups = [...new Set(departmentInputs)].map(async (input) => {
-      const response = await api.get(`/department/find/${encodeURIComponent(input)}`);
-      return response.data?.data;
-    });
-    const departmentLookupResults = await Promise.allSettled(departmentLookups);
-    const departmentRecords = [
-      ...linkedDepartments.filter((item) => typeof item === "object" && (item._id || item.id || item.code)),
-      ...departmentLookupResults.filter((result) => result.status === "fulfilled" && result.value).map((result) => result.value),
-    ];
-    const departmentsById = new Map(departmentRecords.map((item) => [String(item._id || item.id || item.code), item]));
-    try {
-      const cached = JSON.parse(localStorage.getItem("gpm-admin-departments") || "[]");
-      if (Array.isArray(cached)) cached.forEach((item) => departmentsById.set(String(item._id || item.id || item.code), item));
-    } catch { localStorage.removeItem("gpm-admin-departments"); }
-    if (current.role === "super_admin" && next.departments.length) {
-      localStorage.setItem("gpm-admin-departments", JSON.stringify(next.departments));
-    }
-    if (current.role !== "super_admin" || !next.departments.length) next.departments = [...departmentsById.values()];
-    if (current.role !== "super_admin") {
-      failures.splice(0, failures.length, ...failures.filter((message) => !message.startsWith("departments:")));
-    }
     setRecords(next);
     if (failures.length) setError(failures.join(" · "));
     setLoading(false);
@@ -396,12 +362,10 @@ export default function AdminPanel() {
           const oldDepartment = modal.record.department?.code || modal.record.department?.name || modal.record.department || "";
           if (String(payload.department || "") === String(oldDepartment)) delete payload.department;
         }
-        const response = await api.put(CONFIG[modal.section].update(getId(modal.record)), payload);
-        if (modal.section === "departments") cacheDepartment(response.data?.data);
+        await api.put(CONFIG[modal.section].update(getId(modal.record)), payload);
         await loadAll();
       } else {
-        const response = await api.post(CONFIG[modal.section].create, payload);
-        if (modal.section === "departments") cacheDepartment(response.data?.data);
+        await api.post(CONFIG[modal.section].create, payload);
         await loadAll();
       }
       setModal(null);
@@ -424,10 +388,6 @@ export default function AdminPanel() {
         setRecords((previous) => ({ ...previous, faqs: faqList }));
       } else {
         await api.delete(CONFIG[active].remove(getId(record)));
-        if (active === "departments") {
-          const cached = records.departments.filter((item) => String(getId(item)) !== String(getId(record)));
-          localStorage.setItem("gpm-admin-departments", JSON.stringify(cached));
-        }
         await loadAll();
       }
       setNotice("Record deleted.");
@@ -580,19 +540,33 @@ export default function AdminPanel() {
           </div>}
 
           {active !== "dashboard" && active !== "profile" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Edit the existing About Us content. The backend create route is unavailable." : active === "departments" && !isSuper ? "The backend restricts the full department list to Super Admin. Admins can use the list after a Super Admin loads it once in this browser; department creation and updates use the authenticated routes." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "Faculty" : active === "facilities" ? "Facility" : active.slice(0, -1)}`}</button>}</div></div>
+            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Edit the existing About Us content. The backend create route is unavailable." : active === "departments" ? "Department records are fetched directly from the database." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "Faculty" : active === "facilities" ? "Facility" : active.slice(0, -1)}`}</button>}</div></div>
             <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 sm:px-6"><Search size={16} className="text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${LABELS[active].toLowerCase()}…`} className="w-full bg-transparent text-[13px] outline-none placeholder:text-slate-400" /></div>
             <div className="overflow-x-auto">
-              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">No {LABELS[active].toLowerCase()} found</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && !isSuper && records.departments.length === 0 ? "Sign in as Super Admin, open Departments, and select Refresh once in this browser. Then return to this Admin panel and select Refresh." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[680px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
+              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">No {LABELS[active].toLowerCase()} found</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && records.departments.length === 0 ? "The API returned no department records. Check that this account is allowed to read the department list." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[680px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
             </div>
             <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500 sm:px-6">Showing {filtered.length} of {records[active]?.length || 0} records</div>
           </section>}
         </div>
       </main>
 
-      {modal && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModal(null); }}><form onSubmit={save} className="my-auto max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6"><div><h2 className="font-extrabold text-[#12203a]">Edit {modal.section === "faqs" ? "FAQ" : modal.section === "faculties" ? "Faculty" : modal.section === "facilities" ? "Facility" : modal.section === "aboutUs" ? "About Us" : modal.section.slice(0, -1)}</h2><p className="mt-1 text-[11px] text-slate-500">Fields marked required must be completed.</p></div><button type="button" onClick={() => setModal(null)} disabled={busy} aria-label="Close dialog" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">{CONFIG[modal.section].fields.map(([key, label, type, required]) => { if (modal.section === "admins" && modal.record && key === "password") return null; const large = ["textarea", "list", "json"].includes(type); const selectOptions = key === "role" ? [["admin", "Admin"], ["super_admin", "Super Admin"]] : key === "locationType" ? [["Campus", "Campus"], ["Off-Campus", "Off-Campus"]] : [["Available", "Available"], ["Temporarily Closed", "Temporarily Closed"], ["Under Maintenance", "Under Maintenance"]]; return <label key={key} className={large ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}{required && <em className="ml-1 not-italic text-red-500">*</em>}</span>{large ? <textarea rows={type === "list" ? 3 : type === "json" ? 7 : 4} required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" /> : type === "select" ? <select required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"><option value="" disabled>Select {label.toLowerCase()}</option>{selectOptions.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type={type} required={required} min={type === "number" ? 1900 : undefined} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />}</label>; })}</div><div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={() => setModal(null)} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-60">{busy ? "Saving…" : "Save record"}</button></div></form></div>}
+      {modal && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModal(null); }}><form onSubmit={save} className="my-auto max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6"><div><h2 className="font-extrabold text-[#12203a]">Edit {modal.section === "faqs" ? "FAQ" : modal.section === "faculties" ? "Faculty" : modal.section === "facilities" ? "Facility" : modal.section === "aboutUs" ? "About Us" : modal.section.slice(0, -1)}</h2><p className="mt-1 text-[11px] text-slate-500">Fields marked required must be completed.</p></div><button type="button" onClick={() => setModal(null)} disabled={busy} aria-label="Close dialog" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">{CONFIG[modal.section].fields.map(([key, label, type, required]) => { if (modal.section === "admins" && modal.record && key === "password") return null; const large = ["textarea", "list", "json"].includes(type); const selectOptions = key === "role" ? [["admin", "Admin"], ["super_admin", "Super Admin"]] : key === "locationType" ? [["Campus", "Campus"], ["Off-Campus", "Off-Campus"]] : [["Available", "Available"], ["Temporarily Closed", "Temporarily Closed"], ["Under Maintenance", "Under Maintenance"]]; return <label key={key} className={large ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}{required && <em className="ml-1 not-italic text-red-500">*</em>}</span>{type === "list" ? <ArrayInput values={form[key]} required={required} label={label} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : large ? <textarea rows={type === "json" ? 7 : 4} required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" /> : type === "select" ? <select required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"><option value="" disabled>Select {label.toLowerCase()}</option>{selectOptions.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type={type} required={required} min={type === "number" ? 1900 : undefined} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />}</label>; })}</div><div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={() => setModal(null)} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-60">{busy ? "Saving…" : "Save record"}</button></div></form></div>}
     </div>
   );
+}
+
+function ArrayInput({ values, onChange, required, label }) {
+  const items = Array.isArray(values) && values.length ? values : [""];
+  const update = (index, value) => onChange(items.map((item, itemIndex) => itemIndex === index ? value : item));
+  const remove = (index) => onChange(items.length === 1 ? [""] : items.filter((_, itemIndex) => itemIndex !== index));
+
+  return <div className="space-y-2.5">
+    {items.map((value, index) => <div key={index} className="flex items-center gap-2">
+      <input type="text" required={required && index === 0} value={value} onChange={(event) => update(index, event.target.value)} placeholder={`Enter ${label.toLowerCase()} item ${index + 1}`} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />
+      {items.length > 1 && <button type="button" onClick={() => remove(index)} aria-label={`Remove ${label} item ${index + 1}`} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"><X size={16} /></button>}
+    </div>)}
+    <button type="button" onClick={() => onChange([...items, ""])} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-[11px] font-bold text-amber-800 hover:bg-amber-50"><Plus size={14} /> Add another</button>
+  </div>;
 }
 
 function RecordRow({ section, record, currentAdminId, onEdit, onDelete, busy }) {
