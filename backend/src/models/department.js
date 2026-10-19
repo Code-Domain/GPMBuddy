@@ -20,17 +20,13 @@ const departmentModel = new mongoose.Schema(
       trim: true,
     },
 
-    established: {
-      type: Number,
-    },
-
     intake: {
       type: Number,
     },
 
     headOfDepartment: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Faculty",
+      ref: "faculty",
     },
 
     vision: {
@@ -39,43 +35,35 @@ const departmentModel = new mongoose.Schema(
     },
 
     mission: [
-        {
-            description: {
+          {
             type: String,
             required: true,
-            trim: true,
-            },
-        },
+            trim: true
+          },
     ],
 
     peo: [
-        {
-            description: {
+          {
             type: String,
             required: true,
-            trim: true,
-            },
-        },
+            trim: true
+          },
     ],
 
     po: [
-        {
-            description: {
+          {
             type: String,
             required: true,
-            trim: true,
-            },
-        },
+            trim: true
+          },
     ],
 
     pso: [
-        {
-            description: {
+          {
             type: String,
             required: true,
-            trim: true,
-            },
-        },
+            trim: true
+          },
     ],
   },
   {

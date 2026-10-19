@@ -26,6 +26,7 @@ const ensureCodeIsUnique = async (code, excludeId = null) => {
     const existing = await department.findOne(filter);
 
     if (existing) {
+        console.log(existing)
         throw new ApiError(409, "A department with this code already exists!");
     }
 };
@@ -93,11 +94,35 @@ exports.getDepartmentCodesAndNames = async () => {
 exports.getDepartmentsById = async (params) => {
 
     if (!mongoose.Types.ObjectId.isValid(params.id)) {
-        throw new ApiError(400, "Invalid department ID!");
+        throw new ApiError(400, "Invalid department ID");
     }
 
-    return await department.findById(params.id)
-        .populate("headOfDepartment", HOD_POPULATE_FIELDS);
+    const departmentData = await department.findById(params.id).populate("headOfDepartment", HOD_POPULATE_FIELDS);
+
+    if(!departmentData){
+        throw new ApiError(400, "Department not found");
+    }
+
+    const structuredDepartmentData = departmentData.toObject();
+    structuredDepartmentData.pso = structuredDepartmentData.pso.map((description, index) => ({
+        code : `PSO${index+1}`,
+        description: description
+    }));
+    structuredDepartmentData.po = structuredDepartmentData.po.map((description, index) => ({
+        code : `PO${index+1}`,
+        description: description
+    }));
+    structuredDepartmentData.peo = structuredDepartmentData.peo.map((description, index) => ({
+        code : `PEO${index+1}`,
+        description: description
+    }));
+    structuredDepartmentData.mission = structuredDepartmentData.mission.map((description, index) => ({
+        code : `M${index+1}`,
+        description: description
+    }));
+
+    return structuredDepartmentData;
+
 };
 
 
@@ -134,7 +159,22 @@ exports.findDepartment = async (departmentInput) => {
         throw new ApiError(404, "Department not found!");
     }
 
-    return departmentData;
+    const structuredDepartmentData = departmentData.toObject();
+    structuredDepartmentData.pso = structuredDepartmentData.pso.map((description, index) => ({
+        code : `PSO${index+1}`,
+        description: description
+    }));
+    structuredDepartmentData.po = structuredDepartmentData.po.map((description, index) => ({
+        code : `PO${index+1}`,
+        description: description
+    }));
+    structuredDepartmentData.peo = structuredDepartmentData.peo.map((description, index) => ({
+        code : `PEO${index+1}`,
+        description: description
+    }));
+    
+
+    return structuredDepartmentData;
 };
 
 

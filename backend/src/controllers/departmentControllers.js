@@ -20,6 +20,7 @@ exports.findDepartment = async (req, res) => {
     if (!data){
         throw new ApiError(404, "Department not found");
     }
+    console.log(data)
     success(res, 200, "Department found", data);
 }
 
