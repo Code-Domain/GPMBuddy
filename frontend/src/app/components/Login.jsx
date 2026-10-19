@@ -87,7 +87,7 @@ const Login = () => {
 
       console.log("Login successful:", { admin });
 
-      onNavigate(role === "super_admin" ? "super-admin" : "admin");
+      onNavigate("home");
 
     } catch (error) {
 

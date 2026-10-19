@@ -275,6 +275,17 @@ const departments = [
 export function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const adminToken = localStorage.getItem("adminToken");
+  let adminRole = "";
+  if (adminToken) {
+    try {
+      adminRole = JSON.parse(localStorage.getItem("adminData") || "{}").role || "";
+    } catch {
+      adminRole = "";
+    }
+  }
+  const isAdminLoggedIn = Boolean(adminToken && ["admin", "super_admin"].includes(adminRole));
+  const controlPanelPath = adminRole === "super_admin" ? "/super-admin" : "/admin";
   
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -323,34 +334,34 @@ export function Navbar() {
       
       {/* ===================== TOP BRANDING BAR (Collapsible on scroll) ===================== */}
       <div className={`bg-[#ffffff] text-gray-800 pt-3 transition-all duration-300 overflow-hidden ${scrolled ? "max-h-0 opacity-0" : "max-h-[150px] opacity-100"}`}>
-        <div className="max-w-[1320px] mx-auto px-8 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           
           {/* Logo + Name */}
-          <button onClick={() => onNavigate("home")} className="flex items-center gap-3 group">
+          <button onClick={() => onNavigate("home")} className="flex min-w-0 items-center gap-2 sm:gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 rounded-full blur-[8px] opacity-30 group-hover:opacity-50 transition-opacity"></div>
-              <img src={image_poly} alt="GPM Logo" className="relative w-14 h-14 sm:w-12 sm:h-12 object-contain rounded-2xl" />
+              <img src={image_poly} alt="GPM Logo" className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 object-contain rounded-2xl" />
             </div>
-            <div className="hidden sm:block text-left">
-              <h1 className="text-[16px] sm:text-[18px] font-extrabold leading-tight text-gray-800" style={{ letterSpacing: "-0.02em" }}>
+            <div className="min-w-0 text-left">
+              <h1 className="whitespace-nowrap text-[13px] sm:text-[18px] font-extrabold leading-tight text-gray-800" style={{ letterSpacing: "-0.02em" }}>
                 Government Polytechnic
               </h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[13px] text-orange-400 font-bold tracking-wide">Muzaffarpur</span>
-                <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                <span className="text-[11px] text-slate-400 font-medium">Est. 1949</span>
+                <span className="whitespace-nowrap text-[11px] sm:text-[13px] text-orange-400 font-bold tracking-wide">Muzaffarpur</span>
+                <span className="w-1 h-1 shrink-0 rounded-full bg-slate-500"></span>
+                <span className="whitespace-nowrap text-[10px] sm:text-[11px] text-slate-400 font-medium">Est. 1949</span>
               </div>
             </div>
           </button>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3">
             <button
-              onClick={() => onNavigate("login")}
+              onClick={() => isAdminLoggedIn ? navigate(controlPanelPath) : onNavigate("login")}
               className="flex items-center gap-2 bg-blue-700 border border-white/10 text-white px-4 sm:px-5 py-2.5 rounded-full text-[12px] font-semibold hover:bg-blue-500 transition-all"
             >
-              <LogIn className="w-4 h-4" strokeWidth={2.5} />
-              <span className="hidden sm:inline">Admin Login</span>
+              {isAdminLoggedIn ? <Menu className="w-4 h-4" strokeWidth={2.5} /> : <LogIn className="w-4 h-4" strokeWidth={2.5} />}
+              <span className="hidden sm:inline">{isAdminLoggedIn ? "Control Panel" : "Admin Login"}</span>
             </button>
             <button
               onClick={() => onNavigate("gpbuddy")}
@@ -496,14 +507,15 @@ export function Navbar() {
             {/* Mobile Action Buttons */}
             <div className="pt-4 border-t border-slate-100 mt-3 flex gap-3">
               <button 
-                onClick={() => onNavigate("login")} 
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-slate-900 rounded-full"
+                onClick={() => isAdminLoggedIn ? navigate(controlPanelPath) : onNavigate("login")} 
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-500 transition-colors rounded-full"
               >
-                <LogIn size={16} strokeWidth={2.5} /> Login
+                {isAdminLoggedIn ? <Menu size={16} strokeWidth={2.5} /> : <LogIn size={16} strokeWidth={2.5} />}
+                {isAdminLoggedIn ? "Control Panel" : "Login"}
               </button>
               <button 
                 onClick={() => onNavigate("gpbuddy")} 
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-orange-400 rounded-full"
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-blue-900 hover:bg-blue-800 transition-colors rounded-full"
               >
                 <Bot size={16} /> GPM Buddy
               </button>
