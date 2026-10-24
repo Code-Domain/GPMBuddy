@@ -1,5 +1,5 @@
 const { classifyQuestion } = require("./classifierService");
-const { retrieveData } = require("./retrieverService");
+const { retrieveData, collectImageCandidates } = require("./retrieverService");
 const { generateAnswer } = require("./responseService");
 
 // `history` is an optional array of prior turns in this conversation:
@@ -10,7 +10,8 @@ exports.askQuestion = async (question, history = []) => {
 
     const classification = await classifyQuestion(question, history);
     const results = await retrieveData(classification.requests);
-    const answer = await generateAnswer(question, classification, results, history);
+    const imageCandidates = collectImageCandidates(results);
+    const answer = await generateAnswer(question, classification, results, history, imageCandidates);
 
     return {
         question,

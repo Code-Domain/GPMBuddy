@@ -135,4 +135,41 @@ const retrieveData = async (requests) => {
     );
 };
 
-module.exports = { retrieveData };
+// Scans the already-retrieved results for real, existing images
+// (a faculty member's uploaded photo, a facility's image URL) and
+// returns them as a flat, vetted list. This is the ONLY source the
+// answer step is allowed to pull an image URL from — it never lets
+// the model type out a URL itself, the same "ground real data, don't
+// trust free text" rule used everywhere else in this pipeline.
+const collectImageCandidates = (results) => {
+
+    const candidates = [];
+
+    for (const result of results) {
+
+        const items = Array.isArray(result.data)
+            ? result.data
+            : (result.data ? [result.data] : []);
+
+        for (const item of items) {
+
+            if (result.topic === "faculty" && item?._id && item?.profileImage?.contentType) {
+                candidates.push({
+                    label: `Photo of ${item.name}`,
+                    url: `/faculty/id/${item._id}/image`
+                });
+            }
+
+            if (result.topic === "facility" && Array.isArray(item?.images) && item.images.length) {
+                candidates.push({
+                    label: `Photo of ${item.name}`,
+                    url: item.images[0]
+                });
+            }
+        }
+    }
+
+    return candidates;
+};
+
+module.exports = { retrieveData, collectImageCandidates };

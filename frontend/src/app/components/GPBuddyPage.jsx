@@ -1,4 +1,3 @@
-
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
@@ -20,6 +19,20 @@ import {
 } from "lucide-react";
 
 import { askQuestion } from "../../services/chatbotsevice";
+import api from "../../services/api";
+
+// The chatbot's image URLs come in two shapes: a relative backend
+// path for a faculty photo ("/faculty/id/<id>/image", since that
+// image is served by THIS app's own API), or a full external URL for
+// a facility photo (whatever the admin entered). Only the relative
+// kind needs the API's base URL prefixed — an already-absolute URL is
+// left untouched.
+const resolveImageSrc = (src) => {
+  if (/^https?:\/\//i.test(src)) {
+    return src;
+  }
+  return `${api.defaults.baseURL}${src.startsWith("/") ? "" : "/"}${src}`;
+};
 
 const suggestedQuestions = [
   "How can I get admission?",
@@ -417,6 +430,15 @@ export default function GPBuddyPage() {
                           {children}
                         </a>
                       ),
+
+                      img: ({ src, alt }) => (
+                        <img
+                          src={resolveImageSrc(src)}
+                          alt={alt}
+                          loading="lazy"
+                          className="rounded-xl max-w-full my-2 border border-gray-200"
+                        />
+                      ),
                     }}
                   >
                     {msg.text}
@@ -455,11 +477,6 @@ export default function GPBuddyPage() {
                 <span
                   className="w-2 h-2 rounded-full bg-[#0f2e5a] typing-dot"
                   style={{ animationDelay: "300ms" }}
-                ></span>
-                {/* Dot 4 */}
-                <span
-                  className="w-2 h-2 rounded-full bg-[#0f2e5a] typing-dot"
-                  style={{ animationDelay: "450ms" }}
                 ></span>
               </div>
             </div>
