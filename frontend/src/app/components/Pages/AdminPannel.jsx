@@ -72,7 +72,7 @@ const CONFIG = {
       ["name", "Full name", "text", true], ["department", "Department code or name", "text", true],
       ["designation", "Designation", "text", true], ["qualification", "Qualifications (one per line)", "list"],
       ["specialization", "Specialization (one per line)", "list"], ["phone", "Phone", "text"],
-      ["office", "Office", "text"], ["profileImage", "Profile image URL", "url"],
+      ["office", "Office", "text"], ["profileImage", "Profile photo", "file"],
       ["bio", "Biography", "textarea"], ["joiningYear", "Joining year", "number"],
     ],
   },
@@ -161,6 +161,10 @@ const initialForm = (section, record) => {
       result[key] = "";
       return;
     }
+    if (type === "file") {
+      result[key] = null;
+      return;
+    }
     let value = source?.[key];
     if (["department", "principal", "headOfDepartment"].includes(key) && value && typeof value === "object") value = value._id || value.code || value.name || "";
     if (Array.isArray(value)) {
@@ -179,6 +183,10 @@ const initialForm = (section, record) => {
 const makePayload = (section, form, profile) => {
   const payload = { ...form };
   CONFIG[section].fields.forEach(([key, , type]) => {
+    if (type === "file") {
+      if (!(payload[key] instanceof File)) delete payload[key];
+      return;
+    }
     if (type === "number") payload[key] = payload[key] === "" ? undefined : Number(payload[key]);
     if (type === "list") {
       const value = payload[key];
@@ -202,6 +210,20 @@ const makePayload = (section, form, profile) => {
   }
   if (section === "uploads" && !payload.uploadedBy) payload.uploadedBy = profile.username;
   return payload;
+};
+
+const buildRequestBody = (payload) => {
+  const hasFile = Object.values(payload).some((value) => value instanceof File);
+  if (!hasFile) return { body: payload, isMultipart: false };
+
+  const formData = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    if (value instanceof File) formData.append(key, value);
+    else if (Array.isArray(value)) formData.append(key, JSON.stringify(value));
+    else formData.append(key, value);
+  });
+  return { body: formData, isMultipart: true };
 };
 
 const formatValue = (section, key, value) => {
@@ -362,10 +384,12 @@ export default function AdminPanel() {
           const oldDepartment = modal.record.department?.code || modal.record.department?.name || modal.record.department || "";
           if (String(payload.department || "") === String(oldDepartment)) delete payload.department;
         }
-        await api.put(CONFIG[modal.section].update(getId(modal.record)), payload);
+        const { body, isMultipart } = buildRequestBody(payload);
+        await api.put(CONFIG[modal.section].update(getId(modal.record)), body, isMultipart ? { headers: { "Content-Type": "multipart/form-data" } } : undefined);
         await loadAll();
       } else {
-        await api.post(CONFIG[modal.section].create, payload);
+        const { body, isMultipart } = buildRequestBody(payload);
+        await api.post(CONFIG[modal.section].create, body, isMultipart ? { headers: { "Content-Type": "multipart/form-data" } } : undefined);
         await loadAll();
       }
       setModal(null);
@@ -550,7 +574,7 @@ export default function AdminPanel() {
         </div>
       </main>
 
-      {modal && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModal(null); }}><form onSubmit={save} className="my-auto max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6"><div><h2 className="font-extrabold text-[#12203a]">Edit {modal.section === "faqs" ? "FAQ" : modal.section === "faculties" ? "Faculty" : modal.section === "facilities" ? "Facility" : modal.section === "aboutUs" ? "About Us" : modal.section.slice(0, -1)}</h2><p className="mt-1 text-[11px] text-slate-500">Fields marked required must be completed.</p></div><button type="button" onClick={() => setModal(null)} disabled={busy} aria-label="Close dialog" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">{CONFIG[modal.section].fields.map(([key, label, type, required]) => { if (modal.section === "admins" && modal.record && key === "password") return null; const large = ["textarea", "list", "json"].includes(type); const selectOptions = key === "role" ? [["admin", "Admin"], ["super_admin", "Super Admin"]] : key === "locationType" ? [["Campus", "Campus"], ["Off-Campus", "Off-Campus"]] : [["Available", "Available"], ["Temporarily Closed", "Temporarily Closed"], ["Under Maintenance", "Under Maintenance"]]; return <label key={key} className={large ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}{required && <em className="ml-1 not-italic text-red-500">*</em>}</span>{type === "list" ? <ArrayInput values={form[key]} required={required} label={label} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : large ? <textarea rows={type === "json" ? 7 : 4} required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" /> : type === "select" ? <select required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"><option value="" disabled>Select {label.toLowerCase()}</option>{selectOptions.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type={type} required={required} min={type === "number" ? 1900 : undefined} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />}</label>; })}</div><div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={() => setModal(null)} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-60">{busy ? "Saving…" : "Save record"}</button></div></form></div>}
+      {modal && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModal(null); }}><form onSubmit={save} className="my-auto max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6"><div><h2 className="font-extrabold text-[#12203a]">Edit {modal.section === "faqs" ? "FAQ" : modal.section === "faculties" ? "Faculty" : modal.section === "facilities" ? "Facility" : modal.section === "aboutUs" ? "About Us" : modal.section.slice(0, -1)}</h2><p className="mt-1 text-[11px] text-slate-500">Fields marked required must be completed.</p></div><button type="button" onClick={() => setModal(null)} disabled={busy} aria-label="Close dialog" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">{CONFIG[modal.section].fields.map(([key, label, type, required]) => { if (modal.section === "admins" && modal.record && key === "password") return null; const large = ["textarea", "list", "json"].includes(type); const selectOptions = key === "role" ? [["admin", "Admin"], ["super_admin", "Super Admin"]] : key === "locationType" ? [["Campus", "Campus"], ["Off-Campus", "Off-Campus"]] : [["Available", "Available"], ["Temporarily Closed", "Temporarily Closed"], ["Under Maintenance", "Under Maintenance"]]; return <label key={key} className={large ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}{required && <em className="ml-1 not-italic text-red-500">*</em>}</span>{type === "file" ? <FileInput value={form[key]} hasExisting={!!modal.record} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : type === "list" ? <ArrayInput values={form[key]} required={required} label={label} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : large ? <textarea rows={type === "json" ? 7 : 4} required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" /> : type === "select" ? <select required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"><option value="" disabled>Select {label.toLowerCase()}</option>{selectOptions.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type={type} required={required} min={type === "number" ? 1900 : undefined} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />}</label>; })}</div><div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={() => setModal(null)} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-60">{busy ? "Saving…" : "Save record"}</button></div></form></div>}
     </div>
   );
 }
@@ -567,6 +591,21 @@ function ArrayInput({ values, onChange, required, label }) {
     </div>)}
     <button type="button" onClick={() => onChange([...items, ""])} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-[11px] font-bold text-amber-800 hover:bg-amber-50"><Plus size={14} /> Add another</button>
   </div>;
+}
+
+function FileInput({ value, onChange, hasExisting }) {
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(event) => onChange(event.target.files?.[0] || null)}
+        className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+      />
+      {hasExisting && !value && <p className="mt-1 text-[11px] text-slate-400">Leave blank to keep the current photo.</p>}
+      {value && <p className="mt-1 text-[11px] text-emerald-600">New photo selected: {value.name}</p>}
+    </div>
+  );
 }
 
 function RecordRow({ section, record, currentAdminId, onEdit, onDelete, busy }) {

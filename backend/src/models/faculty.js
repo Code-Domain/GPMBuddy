@@ -44,9 +44,21 @@ const facultySchema = new mongoose.Schema(
       default: "",
     },
 
+    // The actual image bytes live here, directly in MongoDB (Atlas
+    // storage persists; this server's own filesystem does not). The
+    // `data` subfield is select: false so it's excluded from normal
+    // queries by default (getFaculties/getFacultyById) — it's only
+    // loaded explicitly, by the one route that serves the image
+    // itself (see facultyServices.getFacultyImage).
     profileImage: {
-      type: String,
-      default: "",
+      data: {
+        type: Buffer,
+        select: false,
+      },
+      contentType: {
+        type: String,
+        default: "",
+      },
     },
 
     bio: {
