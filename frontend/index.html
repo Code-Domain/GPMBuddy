@@ -6,169 +6,118 @@
     <title>Government Polytechnic Muzaffarpur</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <style>
-      :root { --loader-bg:#0A1630; --loader-text:#ffffff; --loader-line:linear-gradient(90deg,#05AF6B 0%,#056DB5 35%,#8D288C 65%,#EF4D24 90%,#EF4D24 100%); }
-      html, body { min-height:100%; margin:0; }
+      :root { --loader-bg:#0A1630; --loader-text:#fff; --loader-line:linear-gradient(90deg,#05AF6B,#056DB5 38%,#8D288C 68%,#EF4D24); }
       * { box-sizing:border-box; }
-      body { font-family:'Poppins',system-ui,sans-serif; overflow:hidden; }
+      html,body { min-height:100%; margin:0; }
+      body { overflow:hidden; font-family:'Poppins',system-ui,sans-serif; }
       body.page-loaded { overflow:auto; }
       #root { min-height:100vh; }
-      .pageloder-wrapper {
-        position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center;
-        overflow:hidden; background:radial-gradient(700px 450px at 12% 18%,rgba(5,175,107,.16),transparent 60%),radial-gradient(700px 450px at 88% 82%,rgba(239,77,36,.14),transparent 60%),var(--loader-bg);
-        transition:transform .9s cubic-bezier(.76,0,.24,1); will-change:transform;
-      }
-      .pageloder-wrapper.exitpage { transform:translateY(-100%); }
-      .pageloder-abs-div { position:relative; width:min(1000px,96vw); height:min(500px,72vh); min-height:400px; }
-      .loader-student { position:absolute; z-index:2; left:14%; bottom:4px; width:220px; height:367px; transform:translateX(-120vw); animation:student-arrive 2.55s cubic-bezier(.2,.75,.25,1) .15s forwards; }
-      .loader-student svg { display:block; width:100%; height:100%; overflow:visible; }
-      .student-character { transform-origin:90px 280px; animation:student-bob .48s ease-in-out infinite alternate; }
-      .student-leg-front,.student-leg-back { transform-box:view-box; transition:transform .22s ease; animation:student-step .7s ease-in-out infinite alternate; }
-      .student-leg-front { transform-origin:97px 164px; }
-      .student-leg-back { transform-origin:79px 164px; animation-delay:-.35s; }
-      .student-arm-front,.student-arm-back { transform-box:view-box; transition:transform .22s ease; animation:student-swing .7s ease-in-out infinite alternate; }
-      .student-arm-front { transform-origin:111px 98px; animation-delay:-.35s; }
-      .student-arm-back { transform-origin:68px 98px; }
-      .loader-student.student-arrived .student-character { animation-play-state:paused; transform:translateY(0); }
-      .loader-student.student-arrived .student-leg-front { animation:none; transform:rotate(-3deg); }
-      .loader-student.student-arrived .student-leg-back { animation:none; transform:rotate(3deg); }
-      .loader-student.student-arrived .student-arm-front { animation:none; transform:rotate(8deg); }
-      .loader-student.student-arrived .student-arm-back { animation:none; transform:rotate(-8deg); }
-      .loader-intro { position:absolute; top:50%; right:0; display:flex; width:80%; flex-direction:column; align-items:center; transform:translateY(-46%); text-align:center; opacity:0; animation:brand-arrive .8s cubic-bezier(.22,1,.36,1) 2.25s forwards; }
-      .loader-speech { position:absolute; z-index:3; top:5%; left:32%; max-width:300px; padding:10px 16px; border:1px solid rgba(255,255,255,.2); border-radius:18px 18px 18px 4px; background:rgba(255,255,255,.09); color:rgba(255,255,255,.9); font-size:12px; letter-spacing:.04em; opacity:0; transform:translateY(8px); animation:speech-intro .5s ease 2.45s forwards; }
-      .pageloder-full-logo { opacity:0; animation:fadeIn .5s ease 2.55s forwards; }
-      .pageloder-full-logo img { display:block; width:clamp(170px,17vw,220px); height:auto; aspect-ratio:1; object-fit:contain; border:3px solid rgba(255,255,255,.85); border-radius:50%; background:#fff; padding:10px; box-shadow:0 0 0 5px rgba(255,255,255,.08); }
-      @keyframes fadeIn { to { opacity:1; } }
-      @keyframes student-arrive { 0% { transform:translateX(-120vw); } 72% { transform:translateX(14px); } 86% { transform:translateX(-5px); } 100% { transform:translateX(0); } }
-      @keyframes student-bob { from { transform:translateY(0); } to { transform:translateY(4px); } }
-      @keyframes student-step { from { transform:rotate(-20deg); } to { transform:rotate(22deg); } }
-      @keyframes student-swing { from { transform:rotate(24deg); } to { transform:rotate(-24deg); } }
-      @keyframes brand-arrive { from { opacity:0; transform:translate(20px,-42%); } to { opacity:1; transform:translate(0,-50%); } }
-      @keyframes brand-arrive-mobile { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
-      @keyframes speech-intro { to { opacity:1; transform:translateY(0); } }
-      .loader-underline { width:min(280px,64vw); height:4px; border-radius:99px; margin:20px 0 16px; background:var(--loader-line); transform:scaleX(0); transform-origin:left center; animation:lineSweep .9s cubic-bezier(.22,1,.36,1) 2s forwards; }
-      @keyframes lineSweep { to { transform:scaleX(1); } }
-      .loader-college-name { display:flex; flex-direction:column; align-items:center; gap:2px; max-width:92vw; margin:0; font-size:clamp(1.15rem,3.2vw,2rem); font-weight:700; line-height:1.2; letter-spacing:.1em; text-transform:uppercase; text-align:center; color:var(--loader-text); }
-      .loader-name-line { display:block; white-space:nowrap; }
-      .loader-college-name span { display:inline-block; opacity:0; transform:translateY(20px); animation:letterUp .55s cubic-bezier(.22,1,.36,1) both; }
-      @keyframes letterUp { to { opacity:1; transform:translateY(0); } }
-      .loader-tagline { margin-top:10px; font-size:.72rem; letter-spacing:.38em; text-transform:uppercase; color:rgba(255,255,255,.55); text-align:center; opacity:0; animation:fadeUp .7s ease 3.5s both; }
-      @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-      .loader-label,.loader-counter { position:absolute; bottom:26px; font-size:.7rem; letter-spacing:.25em; color:rgba(255,255,255,.7); text-transform:uppercase; }
-      .loader-label { left:30px; }
-      .loader-counter { right:30px; }
-      .loader-counter span { font-weight:700; color:#fff; }
-      .loader-progress { position:absolute; left:0; bottom:0; width:100%; height:3px; background:rgba(255,255,255,.08); }
-      .loader-progress span { display:block; height:100%; width:0; background:var(--loader-line); transition:width .15s linear; }
+      .pl-screen { position:fixed; inset:0; z-index:99999; overflow:hidden; color:var(--loader-text); background:var(--loader-bg); isolation:isolate; transition:transform .8s cubic-bezier(.76,0,.24,1); }
+      .pl-screen.exitpage { transform:translateY(-100%); }
+      .pl-bg { position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 38%,rgba(5,109,181,.22),transparent 42%),linear-gradient(145deg,#0A1630,#0A1630 72%,#11162f); }
+      .pl-intro { position:absolute; z-index:2; top:47%; right:16px; left:16px; display:flex; flex-direction:column; align-items:center; transform:translateY(-50%); text-align:center; }
+      .pl-crest-wrap { position:relative; display:grid; width:174px; height:174px; place-items:center; margin-bottom:14px; }
+      .pl-halo { position:absolute; inset:16px; border-radius:50%; background:rgba(5,109,181,.32); filter:blur(28px); animation:halo-pulse 2.8s ease-in-out infinite alternate; }
+      .pl-brand-mark { position:relative; z-index:1; display:grid; width:126px; height:126px; place-items:center; border:1px solid rgba(233,200,118,.7); border-radius:30px; background:linear-gradient(145deg,rgba(18,48,83,.98),rgba(7,18,39,.98)); box-shadow:0 16px 48px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14); opacity:0; transform:scale(.84); animation:logo-in .7s cubic-bezier(.22,1,.36,1) .12s forwards; }
+      .pl-brand-mark svg { width:96px; height:96px; overflow:visible; }
+      .pl-brand-mark .mark-flame { transform-origin:60px 33px; animation:flame-pulse 1.6s ease-in-out infinite alternate; }
+      .pl-title { display:flex; flex-direction:column; margin:0; color:#fff; font-size:clamp(25px,4vw,48px); font-weight:700; line-height:1.12; letter-spacing:.09em; text-transform:uppercase; text-shadow:0 5px 24px rgba(0,0,0,.22); }
+      .pl-title-line { display:block; white-space:nowrap; }
+      .pl-letter { display:inline-block; opacity:0; transform:translateY(14px); animation:title-letter .42s cubic-bezier(.22,1,.36,1) calc(.6s + var(--i)*.025s) forwards; }
+      .pl-tagline { margin:12px 0 0; color:rgba(255,255,255,.65); font-size:clamp(9px,.78vw,12px); font-weight:500; letter-spacing:.32em; text-transform:uppercase; opacity:0; animation:tagline-appear .6s ease 1.9s forwards; }
+      .pl-progress { position:absolute; z-index:4; right:clamp(20px,3vw,46px); bottom:26px; left:clamp(20px,3vw,46px); display:grid; grid-template-columns:auto minmax(80px,1fr) auto; align-items:center; gap:16px; color:rgba(255,255,255,.68); font-size:9px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; }
+      .pl-status { white-space:nowrap; }
+      .pl-track { height:3px; overflow:hidden; border-radius:9px; background:rgba(255,255,255,.12); }
+      .pl-fill { width:0; height:100%; border-radius:inherit; background:var(--loader-line); transition:width .1s linear; }
+      .pl-pct { min-width:38px; color:#fff; text-align:right; }
+      .pl-skip-btn { position:absolute; z-index:5; right:clamp(20px,3vw,46px); bottom:62px; display:flex; align-items:center; gap:8px; padding:9px 14px; border:1px solid rgba(255,255,255,.2); border-radius:999px; color:rgba(255,255,255,.78); background:rgba(255,255,255,.05); font:600 10px/1 'Poppins',system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
+      .pl-skip-btn:hover { color:#fff; background:rgba(255,255,255,.1); }
+      @keyframes logo-in { to { opacity:1; transform:scale(1); } }
+      @keyframes flame-pulse { to { transform:translateY(-2px) scale(1.06); opacity:.78; } }
+      @keyframes halo-pulse { from { opacity:.42; transform:scale(.86); } to { opacity:.9; transform:scale(1.08); } }
+      @keyframes title-letter { to { opacity:1; transform:translateY(0); } }
+      @keyframes tagline-appear { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
       @media (max-width:760px) {
-        .pageloder-abs-div { width:92vw; height:min(540px,76vh); min-height:430px; }
-        .loader-student { left:calc(50% - 66px); width:132px; height:230px; bottom:0; }
-        .loader-intro { top:3%; right:0; width:100%; transform:none; animation:brand-arrive-mobile .8s cubic-bezier(.22,1,.36,1) 2.25s forwards; }
-        .loader-speech { top:auto; bottom:202px; left:50%; white-space:nowrap; transform:translate(-50%,8px); animation:speech-mobile .5s ease 2.45s forwards; }
-        .pageloder-full-logo img { width:112px; padding:7px; }
-        .loader-underline { margin:12px 0 10px; }
-        .loader-college-name { font-size:clamp(1rem,5vw,1.35rem); letter-spacing:.06em; }
-        .loader-tagline { margin-top:8px; font-size:.58rem; letter-spacing:.2em; }
-        .loader-label,.loader-counter { bottom:18px; font-size:.6rem; }
+        .pl-intro { right:10px; left:10px; }
+        .pl-crest-wrap { width:150px; height:150px; margin-bottom:8px; }
+        .pl-brand-mark { width:110px; height:110px; border-radius:26px; }
+        .pl-brand-mark svg { width:84px; height:84px; }
+        .pl-title { font-size:clamp(19px,5.1vw,32px); letter-spacing:.06em; }
+        .pl-tagline { max-width:90vw; margin-top:9px; font-size:8px; letter-spacing:.18em; }
+        .pl-progress { bottom:20px; grid-template-columns:auto minmax(48px,1fr) auto; gap:9px; font-size:8px; letter-spacing:.08em; }
+        .pl-skip-btn { right:20px; bottom:54px; padding:8px 11px; font-size:9px; }
       }
-      @keyframes speech-mobile { to { opacity:1; transform:translate(-50%,0); } }
-      @media (prefers-reduced-motion:reduce) { .pageloder-wrapper { transition-duration:.25s; } .pageloder-wrapper * { animation-duration:.01ms!important; animation-delay:0ms!important; } .loader-student { transform:translateX(0); } }
+      @media (max-width:420px) {
+        .pl-crest-wrap { width:136px; height:136px; }
+        .pl-brand-mark { width:102px; height:102px; border-radius:24px; }
+        .pl-brand-mark svg { width:78px; height:78px; }
+        .pl-title { font-size:18px; letter-spacing:.035em; }
+        .pl-tagline { letter-spacing:.12em; }
+        .pl-status { max-width:106px; white-space:normal; }
+      }
+      @media (prefers-reduced-motion:reduce) {
+        .pl-screen *, .pl-screen::before, .pl-screen::after { animation-duration:.01ms!important; animation-delay:0s!important; animation-iteration-count:1!important; }
+      }
     </style>
   </head>
   <body>
-    <noscript><style>.pageloder-wrapper{display:none}body{overflow:auto}</style></noscript>
-    <div class="pageloder-wrapper active" id="pageloder" role="status" aria-live="polite" aria-label="Loading Government Polytechnic Muzaffarpur">
-      <div class="pageloder-abs-div">
-        <div class="loader-student" id="loaderStudent" aria-hidden="true">
-          <svg viewBox="0 0 180 300" role="img" aria-label="A student walking with a backpack" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="88" cy="284" rx="39" ry="6" fill="#000" opacity=".2"/>
-            <g class="student-character">
-              <g class="student-leg-back">
-                <path d="M77 158c-5 16-7 32-5 48l-12 31 16 9 21-30c6-9 8-20 5-31l-6-25Z" fill="#17284a"/>
-                <path d="m61 235 17 7-8 18-18 2c-7 1-11-3-7-8Z" fill="#f5f6f8"/>
-                <path d="m48 260 26-3-3 5-23 3" fill="#056DB5"/>
-                <path d="m75 207-11 29" stroke="#30466b" stroke-width="2" stroke-linecap="round"/>
-              </g>
-              <g class="student-leg-front">
-                <path d="M94 158c13 16 17 31 15 47l-5 30 18 17 13-10-10-27c-1-18-4-38-12-57Z" fill="#20375d"/>
-                <path d="m120 231 17 8 9 16c2 5-1 9-7 9l-22-3-9-11Z" fill="#f5f6f8"/>
-                <path d="m117 258 28-2 2 5-25 4" fill="#056DB5"/>
-                <path d="m108 207-3 29" stroke="#30466b" stroke-width="2" stroke-linecap="round"/>
-              </g>
-              <path d="M53 89c-8 2-13 9-14 18l-8 47c-1 7 2 11 8 12l31 5 10-16-17-11 8-41Z" fill="#8D288C"/>
-              <path d="M48 105c-2 12-6 29-8 43m18-42-4 35" stroke="#f6bd3b" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M45 145h20l-2 17-20-3Z" fill="#71216f"/>
-              <path d="M67 82c8-6 17-9 28-9 12 0 23 4 31 12l10 69c-20 12-52 13-76 1l1-55c0-7 2-13 6-18Z" fill="#056DB5"/>
-              <path d="M78 78 91 91l13-13 9 8-9 13H78l-9-13Z" fill="#fff"/>
-              <path d="m89 97 3 5-4 23-5-23Z" fill="#EF4D24"/>
-              <path d="M75 105c-7 8-10 18-10 29v25" stroke="#f6bd3b" stroke-width="3" stroke-linecap="round"/>
-              <g class="student-arm-back">
-                <path d="M69 94c-7 1-12 5-15 12l-8 18" stroke="#056DB5" stroke-width="18" stroke-linecap="round"/>
-                <path d="M47 122Q38 137 37 148" stroke="#c98a69" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="38" cy="153" r="6" fill="#c98a69"/>
-              </g>
-              <g class="student-arm-front">
-                <path d="M111 94c8 2 13 7 16 14l6 15" stroke="#056DB5" stroke-width="18" stroke-linecap="round"/>
-                <path d="M132 121Q141 136 142 149" stroke="#d99b73" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="142" cy="154" r="6" fill="#d99b73"/>
-              </g>
-              <path d="M71 47c0-17 11-29 27-30 17-1 29 11 29 29v17c-2 17-14 28-31 28-17 0-29-13-29-30Z" fill="#d99b73"/>
-              <path d="M67 58c-3-17 2-31 14-39 12-8 31-7 42 2 7 6 11 14 11 24-7-2-13-7-17-13-10 8-25 11-42 9l-8 19Z" fill="#17243c"/>
-              <path d="m125 59 10 5-10 4" fill="#d99b73"/>
-              <circle cx="116" cy="57" r="2.2" fill="#17243c"/>
-              <path d="M109 71c-3 2-7 3-10 1" stroke="#9c604e" stroke-width="1.8" stroke-linecap="round"/>
-              <path d="M70 53c-3 6-3 13 0 19" stroke="#f6bd3b" stroke-width="3" stroke-linecap="round"/>
-            </g>
-          </svg>
+    <noscript><style>.pl-screen{display:none}body{overflow:auto}</style></noscript>
+    <main class="pl-screen" id="pageloder" aria-label="Government Polytechnic Muzaffarpur introduction">
+      <div class="pl-bg" aria-hidden="true"></div>
+      <section class="pl-intro" aria-label="College introduction">
+                <div class="pl-crest-wrap">
+          <div class="pl-halo"></div>
+          <div class="pl-brand-mark" role="img" aria-label="GPM learning and innovation mark">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(233,200,118,.3)" stroke-width="1"/>
+              <path d="M22 49 Q41 39 60 50 Q79 39 98 49 V82 Q79 73 60 84 Q41 73 22 82 Z" fill="none" stroke="#eaf4ff" stroke-width="4" stroke-linejoin="round"/>
+              <path d="M60 50 V84 M30 56 Q43 51 53 57 M30 66 Q43 61 53 67 M67 57 Q78 51 90 56 M67 67 Q78 61 90 66" fill="none" stroke="#45b9f4" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M60 21 L55 34 H65 L59 47" fill="none" stroke="#e9c876" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path class="mark-flame" d="M60 12 C52 21 54 27 60 31 C66 27 68 21 60 12Z" fill="#ffb52b"/>
+              <text x="60" y="105" fill="#fff" font-family="Poppins, sans-serif" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">GPM</text>
+            </svg>
+          </div>
         </div>
-        <div class="loader-speech">Welcome! Let me introduce my college.</div>
-        <div class="loader-intro">
-          <div class="pageloder-full-logo"><img src="/gpm-crest.jpg" alt="Government Polytechnic Muzaffarpur crest" /></div>
-          <div class="loader-underline" aria-hidden="true"></div>
-          <h1 class="loader-college-name" id="collegeName" aria-label="Government Polytechnic Muzaffarpur"><span class="loader-name-line" data-text="Government Polytechnic"></span><span class="loader-name-line" data-text="Muzaffarpur"></span></h1>
-          <p class="loader-tagline">Excellence &nbsp;•&nbsp; Integrity &nbsp;•&nbsp; Innovation</p>
-        </div>
+        <h1 class="pl-title" id="collegeName" aria-label="Government Polytechnic Muzaffarpur"><span class="pl-title-line" data-text="Government Polytechnic"></span><span class="pl-title-line" data-text="Muzaffarpur"></span></h1>
+        <p class="pl-tagline">Excellence · Integrity · Innovation</p>
+      </section>
+<div class="pl-progress">
+        <span class="pl-status" id="loaderStatus">Beginning the campus journey</span>
+        <div class="pl-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Loading"><div class="pl-fill" id="loaderBar"></div></div>
+        <span class="pl-pct"><span id="loaderPct">0</span>%</span>
       </div>
-      <div class="loader-label">Loading campus experience</div>
-      <div class="loader-counter"><span id="loaderPct">0</span>%</div>
-      <div class="loader-progress" aria-hidden="true"><span id="loaderBar"></span></div>
-    </div>
+      <button type="button" class="pl-skip-btn" id="loaderSkip" aria-label="Skip introduction"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" x2="19" y1="5" y2="19"></line></svg>Skip Intro</button>
+    </main>
     <div id="root"></div>
     <script>
       (() => {
         const pre = document.getElementById('pageloder');
+        const titleLines = document.querySelectorAll('.pl-title-line');
         const pctEl = document.getElementById('loaderPct');
         const barEl = document.getElementById('loaderBar');
-        const nameLines = document.querySelectorAll('#collegeName [data-text]');
-        const student = document.getElementById('loaderStudent');
-        const MIN_DISPLAY = 5000;
-        const NAME_START = 2200;
-        const LETTER_STEP = 28;
-        let letterIndex = 0;
-        nameLines.forEach((line) => {
-          line.innerHTML = [...line.dataset.text].map((ch) => {
-            const delay = (NAME_START + letterIndex++ * LETTER_STEP) / 1000;
-            return `<span style="animation-delay:${delay}s">${ch === ' ' ? '&nbsp;' : ch}</span>`;
-          }).join('');
-        });
-        const start = Date.now();
+        const statusEl = document.getElementById('loaderStatus');
+        const track = document.querySelector('.pl-track');
+        const skip = document.getElementById('loaderSkip');
+        const duration = 5000;
+        let index = 0;
+        titleLines.forEach(line => { line.innerHTML = [...line.dataset.text].map(char => `<span class="pl-letter" style="--i:${index++}">${char === ' ' ? '&nbsp;' : char}</span>`).join(''); });
+        const start = performance.now();
         let exited = false;
-        const timer = setInterval(() => {
-          const pct = Math.min(100, Math.floor(((Date.now() - start) / MIN_DISPLAY) * 100));
-          pctEl.textContent = pct;
-          barEl.style.width = `${pct}%`;
-          if (pct >= 100) clearInterval(timer);
-        }, 50);
-        function exit() {
+        function exit() { if (exited) return; exited = true; pre.classList.add('exitpage'); document.body.classList.add('page-loaded'); setTimeout(() => pre.remove(), 950); }
+        function tick(now) {
           if (exited) return;
-          exited = true;
-          pre.classList.add('exitpage');
-          document.body.classList.add('page-loaded');
-          setTimeout(() => pre.remove(), 1000);
+          const value = Math.min(100, Math.floor(((now - start) / duration) * 100));
+          pctEl.textContent = value;
+          barEl.style.width = `${value}%`;
+          track.setAttribute('aria-valuenow', value);
+          statusEl.textContent = value < 24 ? 'Beginning the campus journey' : value < 55 ? 'Walking into a brighter future' : value < 82 ? 'Discovering GPM Muzaffarpur' : 'Welcome to GPM';
+          if (value < 100) requestAnimationFrame(tick);
         }
-        setTimeout(exit, MIN_DISPLAY);
-        setTimeout(() => student.classList.add('student-arrived'), 2700);
+        requestAnimationFrame(tick);
+        const timer = setTimeout(exit, duration);
+        skip.addEventListener('click', () => { clearTimeout(timer); exit(); });
       })();
     </script>
     <script type="module" src="/src/main.jsx"></script>
