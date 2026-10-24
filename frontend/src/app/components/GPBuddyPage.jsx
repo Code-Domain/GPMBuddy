@@ -8,11 +8,6 @@ import {
   Send,
   Mic,
   Paperclip,
-  MessageCircle,
-  Building2,
-  ClipboardList,
-  Bell,
-  HelpCircle,
   ArrowLeft,
   User,
   Sparkles,
@@ -20,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { askQuestion } from "../../services/chatbotsevice";
+import api from "../../services/api";
 
 const suggestedQuestions = [
   "How can I get admission?",
@@ -36,6 +32,145 @@ const getTime = () =>
     minute: "2-digit",
   });
 
+const imageFieldNames = new Set([
+  "image",
+  "images",
+  "imageurl",
+  "imageurls",
+  "photo",
+  "photos",
+  "photourl",
+  "fileurl",
+  "fileurls",
+  "picture",
+  "pictures",
+  "profileimage",
+  "thumbnail",
+  "avatar",
+]);
+
+const toDisplayableImageUrl = (value) => {
+  if (typeof value !== "string") return null;
+
+  const source = value.trim().replace(/^<|>$/g, "");
+  if (!source) return null;
+
+  if (/^https?:\/\//i.test(source) || /^data:image\//i.test(source)) {
+    return source;
+  }
+
+  if (source.startsWith("//")) return `https:${source}`;
+  if (source.startsWith("/") || source.startsWith("./") || source.startsWith("../")) {
+    try {
+      return new URL(source, window.location.origin).href;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
+const getImagesFromRetrievedData = (retrievedData = []) => {
+  const images = [];
+  const seen = new Set();
+
+  const addImage = (src, alt) => {
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    images.push({ src, alt });
+  };
+
+  const addImageValue = (value, alt) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => addImageValue(item, alt));
+      return;
+    }
+
+    if (typeof value === "string") {
+      const src = toDisplayableImageUrl(value);
+      addImage(src, alt);
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      const source = value.url ?? value.src ?? value.href ?? value.path;
+      if (source) addImageValue(source, value.alt ?? value.name ?? alt);
+    }
+  };
+
+  const visitRecord = (value, fallbackLabel = "GPM Buddy image") => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => visitRecord(item, fallbackLabel));
+      return;
+    }
+
+    if (!value || typeof value !== "object") return;
+
+    const label = value.name ?? value.title ?? value.fileName ?? fallbackLabel;
+    Object.entries(value).forEach(([key, child]) => {
+      if (imageFieldNames.has(key.toLowerCase())) {
+        addImageValue(child, `${label}`);
+      } else if (child && typeof child === "object") {
+        visitRecord(child, label);
+      }
+    });
+  };
+
+  retrievedData.forEach((result) => {
+    const topicLabel = result?.topic === "faculty" ? "Faculty photo" : "Campus photo";
+    visitRecord(result?.data, topicLabel);
+
+    if (result?.topic === "faculty") {
+      const facultyRecords = Array.isArray(result.data)
+        ? result.data
+        : result.data && typeof result.data === "object"
+          ? [result.data]
+          : [];
+      const apiBase = String(api.defaults.baseURL || "/api").replace(/\/$/, "");
+
+      facultyRecords.forEach((faculty) => {
+        const hasUsableProfileImage = Boolean(toDisplayableImageUrl(faculty?.profileImage));
+        const facultyId = faculty?._id ?? faculty?.id;
+        if (hasUsableProfileImage || !facultyId) return;
+
+        addImage(
+          `${apiBase}/faculty/${encodeURIComponent(facultyId)}/image`,
+          faculty?.name ? `${faculty.name} profile photo` : "Faculty photo"
+        );
+      });
+    }
+  });
+
+  return images;
+};
+
+const asksForImage = (question) =>
+  /\b(images?|pictures?|photos?|photographs?|pics?)\b/i.test(question);
+
+function ChatImage({ src, alt }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 block overflow-hidden rounded-xl border border-[#e2eaf4] bg-[#f0f4f8]"
+      aria-label={`Open image: ${alt}`}
+    >
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="max-h-80 w-full object-contain"
+      />
+    </a>
+  );
+}
+
 export default function GPBuddyPage() {
   const [messages, setMessages] = useState([
     {
@@ -49,7 +184,6 @@ export default function GPBuddyPage() {
   const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [activeSection, setActiveSection] = useState("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const bottomRef = useRef(null);
@@ -105,6 +239,7 @@ export default function GPBuddyPage() {
         id: Date.now() + 1,
         role: "bot",
         text: answer,
+        images: asksForImage(text) ? getImagesFromRetrievedData(response?.data?.retrievedData) : [],
         time: getTime(),
       };
 
@@ -131,14 +266,6 @@ export default function GPBuddyPage() {
     }
   };
 
-  const sidebarItems = [
-    { id: "chat", icon: MessageCircle, label: "Chat" },
-    { id: "departments", icon: Building2, label: "Departments" },
-    { id: "admissions", icon: ClipboardList, label: "Admissions" },
-    { id: "notices", icon: Bell, label: "Notices" },
-    { id: "help", icon: HelpCircle, label: "Help" },
-  ];
-
   return (
     <div className="flex h-screen bg-[#f0f4f8] overflow-hidden">
       {/* Custom CSS for the Wave Typing Animation */}
@@ -155,7 +282,7 @@ export default function GPBuddyPage() {
       {/* Sidebar */}
       <div
         className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } lg:translate-x-0 fixed lg:relative z-40 h-full w-64 lg:w-20 xl:w-56 bg-white border-r border-[#e2eaf4] flex flex-col transition-transform duration-300`}
+          } lg:translate-x-0 fixed lg:relative z-40 h-full w-64 lg:w-56 xl:w-64 bg-white border-r border-[#e2eaf4] flex flex-col transition-transform duration-300`}
       >
         <div className="p-4 border-b border-[#e2eaf4] flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0f2e5a] to-[#1a6bc5] flex items-center justify-center">
@@ -174,23 +301,14 @@ export default function GPBuddyPage() {
           </button>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {sidebarItems.map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              onClick={() => {
-                setActiveSection(id);
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ${activeSection === id
-                ? "bg-[#0f2e5a] text-white"
-                : "text-[#4a6080] hover:bg-[#e8f1fb]"
-                }`}
-            >
-              <Icon size={17} />
-              <span className="lg:hidden xl:block">{label}</span>
-            </button>
-          ))}
+        <nav className="flex-1 min-h-0 overflow-hidden bg-white">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden bg-white">
+            <img
+              src="/gpm-chat-student.png"
+              alt="Student carrying books and a backpack"
+              className="h-full max-h-[min(86vh,650px)] w-full object-contain"
+            />
+          </div>
         </nav>
 
         <div className="p-3 border-t border-[#e2eaf4]">
@@ -417,12 +535,23 @@ export default function GPBuddyPage() {
                           {children}
                         </a>
                       ),
+
+                      img: ({ src, alt }) => (
+                        <ChatImage src={toDisplayableImageUrl(src)} alt={alt || "Image from GPM Buddy"} />
+                      ),
                     }}
                   >
                     {msg.text}
                   </ReactMarkdown>
                 ) : (
                   msg.text
+                )}
+                {msg.role === "bot" && msg.images?.length > 0 && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {msg.images.map((image) => (
+                      <ChatImage key={image.src} src={image.src} alt={image.alt} />
+                    ))}
+                  </div>
                 )}
               </div>
 
