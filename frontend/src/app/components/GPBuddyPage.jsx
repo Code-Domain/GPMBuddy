@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { Children, cloneElement, isValidElement, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -28,6 +28,27 @@ const resolveImageSrc = (src) => {
   }
   return `${api.defaults.baseURL}${src.startsWith("/") ? "" : "/"}${src}`;
 };
+
+const MARKDOWN_BREAK = "GPMMARKDOWNBREAKMARKER9F731";
+
+const normalizeAssistantBreaks = (text) =>
+  String(text ?? "").replace(/(?:&amp;lt;|&lt;|<)\s*br\s*\/?\s*(?:&amp;gt;|&gt;|>)/gi, MARKDOWN_BREAK);
+
+const renderLineBreaks = (children) =>
+  Children.map(children, (child, index) => {
+    if (typeof child === "string" && child.includes(MARKDOWN_BREAK)) {
+      return child.split(MARKDOWN_BREAK).flatMap((part, partIndex) => [
+        ...(partIndex ? [<br key={"markdown-break-" + index + "-" + partIndex} />] : []),
+        ...(part ? [part] : []),
+      ]);
+    }
+
+    if (isValidElement(child) && child.props.children) {
+      return cloneElement(child, {}, renderLineBreaks(child.props.children));
+    }
+
+    return child;
+  });
 
 const suggestedQuestions = [
   "How can I get admission?",
@@ -441,7 +462,7 @@ export default function GPBuddyPage() {
                     components={{
                       p: ({ children }) => (
                         <p className="mb-3 last:mb-0 leading-6">
-                          {children}
+                          {renderLineBreaks(children)}
                         </p>
                       ),
 
@@ -459,7 +480,7 @@ export default function GPBuddyPage() {
 
                       li: ({ children }) => (
                         <li className="leading-6">
-                          {children}
+                          {renderLineBreaks(children)}
                         </li>
                       ),
 
@@ -515,7 +536,7 @@ export default function GPBuddyPage() {
 
                       td: ({ children }) => (
                         <td className="border border-gray-300 px-3 py-2">
-                          {children}
+                          {renderLineBreaks(children)}
                         </td>
                       ),
 
@@ -558,7 +579,7 @@ export default function GPBuddyPage() {
                       ),
                     }}
                   >
-                    {msg.text}
+                    {normalizeAssistantBreaks(msg.text)}
                   </ReactMarkdown>
                 ) : (
                   msg.text
