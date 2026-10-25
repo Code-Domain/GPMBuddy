@@ -19,8 +19,8 @@ import api from "../../services/api";
 // The chatbot's image URLs come in two shapes: a relative backend
 // path for a faculty photo ("/faculty/id/<id>/image", since that
 // image is served by THIS app's own API), or a full external URL for
-// a facility photo (whatever the admin entered). Only the relative
-// kind needs the API's base URL prefixed — an already-absolute URL is
+// a facility photo (whatever the admin entered). Only the relative.
+// kind needs the API's base URL prefixed — an already-absolute URL is.
 // left untouched.
 const resolveImageSrc = (src) => {
   if (/^https?:\/\//i.test(src)) {
