@@ -163,7 +163,7 @@ Return Response
 
 ### Why Hybrid Search?
 
-Using AI for every question is expensive and consumes API limits.
+Using AI for every question is expensive and consumes API limits..
 
 Example:
 
