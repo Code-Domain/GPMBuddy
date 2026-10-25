@@ -30,7 +30,7 @@ import axios from "axios";
 const api = axios.create({
   // In development, proxy through Vite so requests share the page origin and
   // don't depend on the backend's fixed localhost:5173 CORS allowance.
-  baseURL: import.meta.env.DEV ? "/api" : "http://localhost:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL?.trim() || "/api",
 
   headers: {
     "Content-Type": "application/json",
