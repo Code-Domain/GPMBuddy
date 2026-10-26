@@ -8,7 +8,7 @@ exports.getAboutUs = async (req, res) => {
 }
 
 exports.createAboutUs = async (req, res) => {
-    const createdAboutUs = await aboutUsServices.createAboutUs(req.body);
+    const createdAboutUs = await aboutUsServices.createAboutUs(req.body); 
     if(!createdAboutUs){
         throw new ApiError(400, "About not created!");
     }

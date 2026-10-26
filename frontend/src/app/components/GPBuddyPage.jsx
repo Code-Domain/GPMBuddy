@@ -1,4 +1,5 @@
-import { useNavigate, useLocation } from "react-router-dom";
+
+import { useNavigate } from "react-router-dom";
 import { Children, cloneElement, isValidElement, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -19,9 +20,19 @@ import api from "../../services/api";
 // The chatbot's image URLs come in two shapes: a relative backend
 // path for a faculty photo ("/faculty/id/<id>/image", since that
 // image is served by THIS app's own API), or a full external URL for
-// a facility photo (whatever the admin entered). Only the relative.
-// kind needs the API's base URL prefixed — an already-absolute URL is.
+// a facility photo (whatever the admin entered). Only the relative
+// kind needs the API's base URL prefixed — an already-absolute URL is
 // left untouched.
+//
+// This is the ONLY place in the app that decides whether to show an
+// image in a chatbot answer — the backend's responseService.js grounds
+// every image URL against real data and instructs the model to include
+// one only when the student actually asked or it's genuinely needed,
+// then renders it as a normal markdown image. There used to be a
+// second, separate system here that re-scanned the raw retrievedData
+// for any faculty photo whenever a question merely contained a word
+// like "image" — that duplicated every photo the markdown path already
+// rendered, so it's been removed; this is the single source of truth.
 const resolveImageSrc = (src) => {
   if (/^https?:\/\//i.test(src)) {
     return src;
@@ -65,142 +76,25 @@ const getTime = () =>
     minute: "2-digit",
   });
 
-const imageFieldNames = new Set([
-  "image",
-  "images",
-  "imageurl",
-  "imageurls",
-  "photo",
-  "photos",
-  "photourl",
-  "fileurl",
-  "fileurls",
-  "picture",
-  "pictures",
-  "profileimage",
-  "thumbnail",
-  "avatar",
-]);
-
-const toDisplayableImageUrl = (value) => {
-  if (typeof value !== "string") return null;
-
-  const source = value.trim().replace(/^<|>$/g, "");
-  if (!source) return null;
-
-  if (/^https?:\/\//i.test(source) || /^data:image\//i.test(source)) {
-    return source;
-  }
-
-  if (source.startsWith("//")) return `https:${source}`;
-  if (source.startsWith("/") || source.startsWith("./") || source.startsWith("../")) {
-    try {
-      return new URL(source, window.location.origin).href;
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-};
-
-const getImagesFromRetrievedData = (retrievedData = []) => {
-  const images = [];
-  const seen = new Set();
-
-  const addImage = (src, alt) => {
-    if (!src || seen.has(src)) return;
-    seen.add(src);
-    images.push({ src, alt });
-  };
-
-  const addImageValue = (value, alt) => {
-    if (Array.isArray(value)) {
-      value.forEach((item) => addImageValue(item, alt));
-      return;
-    }
-
-    if (typeof value === "string") {
-      const src = toDisplayableImageUrl(value);
-      addImage(src, alt);
-      return;
-    }
-
-    if (value && typeof value === "object") {
-      const source = value.url ?? value.src ?? value.href ?? value.path;
-      if (source) addImageValue(source, value.alt ?? value.name ?? alt);
-    }
-  };
-
-  const visitRecord = (value, fallbackLabel = "GPM Buddy image") => {
-    if (Array.isArray(value)) {
-      value.forEach((item) => visitRecord(item, fallbackLabel));
-      return;
-    }
-
-    if (!value || typeof value !== "object") return;
-
-    const label = value.name ?? value.title ?? value.fileName ?? fallbackLabel;
-    Object.entries(value).forEach(([key, child]) => {
-      if (imageFieldNames.has(key.toLowerCase())) {
-        addImageValue(child, `${label}`);
-      } else if (child && typeof child === "object") {
-        visitRecord(child, label);
-      }
-    });
-  };
-
-  retrievedData.forEach((result) => {
-    const topicLabel = result?.topic === "faculty" ? "Faculty photo" : "Campus photo";
-    visitRecord(result?.data, topicLabel);
-
-    if (result?.topic === "faculty") {
-      const facultyRecords = Array.isArray(result.data)
-        ? result.data
-        : result.data && typeof result.data === "object"
-          ? [result.data]
-          : [];
-      const apiBase = String(api.defaults.baseURL || "/api").replace(/\/$/, "");
-
-      facultyRecords.forEach((faculty) => {
-        const hasUsableProfileImage = Boolean(toDisplayableImageUrl(faculty?.profileImage));
-        const facultyId = faculty?._id ?? faculty?.id;
-        if (hasUsableProfileImage || !facultyId) return;
-
-        addImage(
-          `${apiBase}/faculty/${encodeURIComponent(facultyId)}/image`,
-          faculty?.name ? `${faculty.name} profile photo` : "Faculty photo"
-        );
-      });
-    }
-  });
-
-  return images;
-};
-
-const asksForImage = (question) =>
-  /\b(images?|pictures?|photos?|photographs?|pics?)\b/i.test(question);
-
-function ChatImage({ src, alt }) {
+// Hides itself gracefully if the image URL ever fails to load (e.g. a
+// transient network hiccup) instead of showing the browser's default
+// broken-image icon — the one useful bit of the removed ChatImage
+// component, now applied uniformly to every markdown image.
+function AnswerImage({ src, alt }) {
   const [failed, setFailed] = useState(false);
-  if (!src || failed) return null;
+
+  if (!src || failed) {
+    return null;
+  }
 
   return (
-    <a
-      href={src}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-3 block overflow-hidden rounded-xl border border-[#e2eaf4] bg-[#f0f4f8]"
-      aria-label={`Open image: ${alt}`}
-    >
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onError={() => setFailed(true)}
-        className="max-h-80 w-full object-contain"
-      />
-    </a>
+    <img
+      src={resolveImageSrc(src)}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="rounded-xl max-w-full my-2 border border-gray-200"
+    />
   );
 }
 
@@ -228,8 +122,7 @@ export default function GPBuddyPage() {
     else if (path.startsWith("dept-")) navigate(`/dept/${path}`);
     else navigate(`/${path}`);
 
-    setMobileOpen(false);
-    setDeptOpen(false);
+    setSidebarOpen(false);
   };
 
   useEffect(() => {
@@ -272,7 +165,6 @@ export default function GPBuddyPage() {
         id: Date.now() + 1,
         role: "bot",
         text: answer,
-        images: asksForImage(text) ? getImagesFromRetrievedData(response?.data?.retrievedData) : [],
         time: getTime(),
       };
 
@@ -569,27 +461,13 @@ export default function GPBuddyPage() {
                         </a>
                       ),
 
-                      img: ({ src, alt }) => (
-                        <img
-                          src={resolveImageSrc(src)}
-                          alt={alt}
-                          loading="lazy"
-                          className="rounded-xl max-w-full my-2 border border-gray-200"
-                        />
-                      ),
+                      img: ({ src, alt }) => <AnswerImage src={src} alt={alt} />,
                     }}
                   >
                     {normalizeAssistantBreaks(msg.text)}
                   </ReactMarkdown>
                 ) : (
                   msg.text
-                )}
-                {msg.role === "bot" && msg.images?.length > 0 && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {msg.images.map((image) => (
-                      <ChatImage key={image.src} src={image.src} alt={image.alt} />
-                    ))}
-                  </div>
                 )}
               </div>
 

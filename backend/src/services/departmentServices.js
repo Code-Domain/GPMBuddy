@@ -5,7 +5,7 @@ const faculty = require("../models/faculty");
 const facility = require("../models/facility");
 const ApiError = require("../utils/ApiError");
 
-const HOD_POPULATE_FIELDS = "name designation";
+const HOD_POPULATE_FIELDS = "name designation profileImage.contentType";
 
 
 const escapeRegex = (value) => {

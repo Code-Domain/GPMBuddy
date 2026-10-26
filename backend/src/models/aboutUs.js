@@ -14,11 +14,14 @@ const aboutUsModel = new mongoose.Schema(
       trim: true,
     },
 
-    mission: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    mission: [
+          {
+            type: String,
+            required: true,
+            trim: true
+          },
+    ],
+
 
     principalMessage: {
       type: String,
