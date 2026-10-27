@@ -160,6 +160,20 @@ const collectImageCandidates = (results) => {
                 });
             }
 
+            // A department's headOfDepartment is itself a (populated)
+            // faculty record, carrying its own profileImage — this is
+            // a different data path from the "faculty" topic above, so
+            // it needs its own check rather than being covered by it.
+            if (result.topic === "department") {
+                const hod = item?.headOfDepartment;
+                if (hod?._id && hod?.profileImage?.contentType) {
+                    candidates.push({
+                        label: `Photo of ${hod.name} (HOD, ${item.name})`,
+                        url: `/faculty/id/${hod._id}/image`
+                    });
+                }
+            }
+
             if (result.topic === "facility" && Array.isArray(item?.images) && item.images.length) {
                 candidates.push({
                     label: `Photo of ${item.name}`,

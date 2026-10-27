@@ -6,8 +6,8 @@ const authenticate = require("../middleware/authenticateMiddlewares");
 
 router.get("/", aboutUsControllers.getAboutUs);
 
-router.post("/create",  aboutUsControllers.createAboutUs); 
+router.post("/create", authenticate, aboutUsControllers.createAboutUs); 
 
-router.put("/update/:id",  aboutUsControllers.updateAboutUs);
+router.put("/update/:id", authenticate, aboutUsControllers.updateAboutUs);
 
 module.exports= router;
