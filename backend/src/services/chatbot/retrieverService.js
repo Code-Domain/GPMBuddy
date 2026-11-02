@@ -8,24 +8,24 @@ const academicServices = require("../../services/academicServices");
 
 // Long syllabus lists for dozens of subjects would bloat the answer
 // prompt for no benefit, so once a result set is larger than this the
-// syllabus is dropped. Narrow queries (a specific subject, one
-// department's subjects) usually stay under the limit and keep it.
+// syllabus is dropped. Narrow queries usually stay under the limit.
 const MAX_SUBJECTS_WITH_SYLLABUS = 8;
 
 // A subject with an empty "departments" array is common to every
-// department, so it's labelled explicitly instead of leaving the
-// answer step to guess what an empty array means.
+// department, so it's labelled explicitly.
 const prepareSubjects = (subjects) => {
-
     const dropSyllabus = subjects.length > MAX_SUBJECTS_WITH_SYLLABUS;
 
     return subjects.map(subject => {
+        const plain =
+            typeof subject.toObject === "function"
+                ? subject.toObject()
+                : { ...subject };
 
-        const plain = typeof subject.toObject === "function" ? subject.toObject() : { ...subject };
-
-        plain.departments = plain.departments && plain.departments.length
-            ? plain.departments
-            : ["All departments"];
+        plain.departments =
+            plain.departments && plain.departments.length
+                ? plain.departments
+                : ["All departments"];
 
         if (dropSyllabus) {
             delete plain.syllabus;
@@ -35,16 +35,13 @@ const prepareSubjects = (subjects) => {
     });
 };
 
-// Fetches real data for ONE classified request, using the project's
-// existing CRUD services only. Returns null when nothing relevant
-// exists, so the response layer can say so instead of guessing.
+// Fetches real data for ONE classified request.
 const retrieveOne = async (request) => {
-
     const {
         topic,
         departmentCode,
         facultyNameQuery,
-        designationQuery,
+        designationQueries,
         facilityCategoryQuery,
         facilityNameQuery,
         subjectNameQuery,
@@ -53,27 +50,33 @@ const retrieveOne = async (request) => {
     } = request;
 
     switch (topic) {
-
         case "department":
             return departmentCode
                 ? await departmentServices.findDepartment(departmentCode)
                 : await departmentServices.getDepartments();
 
         case "faculty": {
+            const hasDesignations = Array.isArray(designationQueries) && designationQueries.length > 0;
+ 
             // facultyServices.searchFaculty combines name (partial
-            // match), department, and designation (exact match)
-            // filters together — e.g. "principal of mechanical
-            // department" uses department + designation at once.
-            if (facultyNameQuery || departmentCode || designationQuery) {
+            // match), department, and designation tags together —
+            // e.g. "HODs in mechanical" uses department + the "HOD"
+            // tag at once. A faculty member holds several independent
+            // tags (e.g. ["Lecturer", "HOD"]), and the search matches
+            // anyone whose tags CONTAIN any requested one, so there's
+            // no compound-string handling needed anywhere in this
+            // pipeline.
+            if (facultyNameQuery || departmentCode || hasDesignations) {
                 return await facultyServices.searchFaculty({
                     search: facultyNameQuery || undefined,
                     department: departmentCode || undefined,
-                    designation: designationQuery || undefined
+                    designations: hasDesignations ? designationQueries : undefined
                 });
             }
-
+ 
             return await facultyServices.getFaculties();
         }
+
 
         case "event":
             return await Event.find().sort({ date: 1 });
@@ -82,15 +85,14 @@ const retrieveOne = async (request) => {
             return await academicServices.getAcademicInfo();
 
         case "aboutUs":
-            // Singleton document, no filters needed.
             return await aboutUsServices.getAboutUs();
 
         case "facility": {
-            // facilityServices.searchFacilities combines name (partial
-            // match), category, and department filters together —
-            // e.g. "labs in the CSE department" uses category +
-            // department at once.
-            if (facilityNameQuery || facilityCategoryQuery || departmentCode) {
+            if (
+                facilityNameQuery ||
+                facilityCategoryQuery ||
+                departmentCode
+            ) {
                 return await facilityServices.searchFacilities({
                     search: facilityNameQuery || undefined,
                     category: facilityCategoryQuery || undefined,
@@ -102,12 +104,10 @@ const retrieveOne = async (request) => {
         }
 
         case "subject": {
-            // subjectServices.searchSubjects combines name, department,
-            // and type filters together — e.g. "practical subjects of
-            // the CSE department". Note: subject departments use
-            // subjectDepartmentQuery, a separate grounded field from
-            // departmentCode — see classifierService.js.
-            const hasFilter = subjectNameQuery || subjectTypeQuery || subjectDepartmentQuery;
+            const hasFilter =
+                subjectNameQuery ||
+                subjectTypeQuery ||
+                subjectDepartmentQuery;
 
             const subjects = hasFilter
                 ? await subjectServices.searchSubjects({
@@ -125,12 +125,8 @@ const retrieveOne = async (request) => {
     }
 };
 
-// A question can ask about several things at once (e.g. "the
-// principal and the college name"); classifierService breaks it into
-// one request per distinct thing, and this fetches each one
-// independently, in parallel.
+// A question can ask about several things at once.
 const retrieveData = async (requests) => {
-
     return await Promise.all(
         requests.map(async request => ({
             topic: request.topic,
@@ -139,37 +135,31 @@ const retrieveData = async (requests) => {
     );
 };
 
-// Scans the already-retrieved results for real, existing images
-// (a faculty member's uploaded photo, a facility's image URL) and
-// returns them as a flat, vetted list. This is the ONLY source the
-// answer step is allowed to pull an image URL from — it never lets
-// the model type out a URL itself, the same "ground real data, don't
-// trust free text" rule used everywhere else in this pipeline.
+// Scans retrieved results for real, existing images.
 const collectImageCandidates = (results) => {
-
     const candidates = [];
 
     for (const result of results) {
-
         const items = Array.isArray(result.data)
             ? result.data
             : (result.data ? [result.data] : []);
 
         for (const item of items) {
-
-            if (result.topic === "faculty" && item?._id && item?.profileImage?.contentType) {
+            if (
+                result.topic === "faculty" &&
+                item?._id &&
+                item?.profileImage?.contentType
+            ) {
                 candidates.push({
                     label: `Photo of ${item.name}`,
                     url: `/faculty/id/${item._id}/image`
                 });
             }
 
-            // A department's headOfDepartment is itself a (populated)
-            // faculty record, carrying its own profileImage — this is
-            // a different data path from the "faculty" topic above, so
-            // it needs its own check rather than being covered by it.
+            // A department's headOfDepartment is a populated faculty record.
             if (result.topic === "department") {
                 const hod = item?.headOfDepartment;
+
                 if (hod?._id && hod?.profileImage?.contentType) {
                     candidates.push({
                         label: `Photo of ${hod.name} (HOD, ${item.name})`,
@@ -178,7 +168,11 @@ const collectImageCandidates = (results) => {
                 }
             }
 
-            if (result.topic === "facility" && Array.isArray(item?.images) && item.images.length) {
+            if (
+                result.topic === "facility" &&
+                Array.isArray(item?.images) &&
+                item.images.length
+            ) {
                 candidates.push({
                     label: `Photo of ${item.name}`,
                     url: item.images[0]
@@ -190,4 +184,7 @@ const collectImageCandidates = (results) => {
     return candidates;
 };
 
-module.exports = { retrieveData, collectImageCandidates };
+module.exports = {
+    retrieveData,
+    collectImageCandidates
+};

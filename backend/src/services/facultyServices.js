@@ -10,7 +10,114 @@ const escapeRegex = (value) => {
 };
 
 
+const normalizeStringArray = (rawValue, fieldName) => {
+    let values = rawValue;
+
+    // Parse JSON strings received through FormData
+    if (typeof values === "string") {
+        try {
+            values = JSON.parse(values);
+        } catch {
+            throw new ApiError(400, `Invalid ${fieldName} format!`);
+        }
+    }
+
+    if (!Array.isArray(values)) {
+        throw new ApiError(400, `${fieldName} must be an array!`);
+    }
+
+    const result = [];
+
+    for (const raw of values) {
+        if (typeof raw !== "string") continue;
+
+        let value = raw.trim();
+
+        if (!value) continue;
+
+        // Repair an array that was previously stored as a JSON string
+        if (value.startsWith("[") && value.endsWith("]")) {
+            try {
+                const parsed = JSON.parse(value);
+
+                if (Array.isArray(parsed)) {
+                    for (const item of parsed) {
+                        if (typeof item === "string" && item.trim()) {
+                            result.push(item.trim());
+                        }
+                    }
+                    continue;
+                }
+            } catch {
+                // Keep it as a normal string if it is not valid JSON.
+            }
+        }
+
+        result.push(value);
+    }
+
+    return result;
+};
+
+
+// Trims each entry and drops duplicates/empties — same pattern used
+// for qualification/specialization and for subjects' type/departments
+// arrays elsewhere in this project.
+
+
+const normalizeDesignations = (rawList) => {
+    const designations = normalizeStringArray(
+        rawList,
+        "designations"
+    );
+
+    const seen = new Set();
+    const result = [];
+
+    for (const raw of designations) {
+        const value = raw.trim();
+        const normalizedValue = value.toLowerCase();
+
+        if (!seen.has(normalizedValue)) {
+            seen.add(normalizedValue);
+            result.push(value);
+        }
+    }
+
+    if (result.length === 0) {
+        throw new ApiError(
+            400,
+            "At least one valid designation is required!"
+        );
+    }
+
+    return result;
+};
+
+
+// A profileImage is only ever valid as a complete pair — contentType
+// with no real image bytes is exactly the broken state that causes
+// getFacultyImage to 404 while the faculty record otherwise looks
+// fine. This guards against that ever being written again, from any
+// entry point (not just the admin panel's own upload flow).
+const assertValidProfileImage = (profileImage) => {
+
+    if (profileImage === undefined) {
+        return;
+    }
+
+    const hasData = Buffer.isBuffer(profileImage?.data) && profileImage.data.length > 0;
+    const hasContentType = !!profileImage?.contentType;
+
+    if (hasContentType !== hasData) {
+        throw new ApiError(400, "profileImage must include both real image data and a contentType together, or neither.");
+    }
+};
+
+
 exports.createFaculty = async (body) => {
+
+    assertValidProfileImage(body.profileImage);
 
     let departmentId = null;
 
@@ -22,9 +129,9 @@ exports.createFaculty = async (body) => {
     const faculty = await Faculty.create({
         name: body.name,
         department: departmentId,
-        designation: body.designation,
-        qualification: body.qualification || [],
-        specialization: body.specialization || [],
+        designations: normalizeDesignations(body.designations),
+        qualification: normalizeStringArray(body.qualification || [],qualification),
+        specialization: normalizeStringArray(body.specialization || [],specialization),
         phone: body.phone || "",
         office: body.office || "",
         // body.profileImage is { data: Buffer, contentType: string },
@@ -55,7 +162,11 @@ exports.getFaculties = async () => {
 
 exports.getDesignations = async () => {
 
-    return await Faculty.distinct("designation");
+    // distinct() on an array field returns each unique ELEMENT across
+    // all documents (not the arrays themselves), so this yields the
+    // atomic tags — "Lecturer", "Selection Grade", "HOD", etc. — which
+    // is exactly what the chatbot classifier grounds against.
+    return await Faculty.distinct("designations");
 };
 
 
@@ -69,15 +180,24 @@ exports.searchFaculty = async (body) => {
     }
 
 
-    if (body.designation) {
-        const designation = body.designation.trim();
+    if (Array.isArray(body.designations) && body.designations.length) {
 
-        if (designation) {
-            filter.designation = {
-                $regex: `^${escapeRegex(designation)}$`,
-                $options: "i"
-            };
-        }
+        // "Does the faculty member's designations array contain ANY of
+        // these tags" — standard Mongo array-field behaviour for $in.
+        // Because each tag is atomic ("Lecturer", "Selection Grade",
+        // "HOD"), a search for "Lecturer" automatically includes
+        // someone tagged ["Lecturer", "Selection Grade"] or
+        // ["Lecturer", "HOD"] — no compound-string parsing needed —
+        // while "Professor" still correctly excludes "Assistant
+        // Professor", since that's stored as its own separate tag.
+        // Case-insensitive exact match per tag, same convention as
+        // every other grounded string field in this project.
+        filter.designations = {
+            $in: body.designations
+                .map(designation => designation.trim())
+                .filter(Boolean)
+                .map(designation => new RegExp(`^${escapeRegex(designation)}$`, "i"))
+        };
     }
 
 
@@ -139,6 +259,8 @@ exports.updateFaculty = async (req) => {
     const { id } = req.params;
     const body = req.body;
 
+    assertValidProfileImage(body.profileImage);
+
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new ApiError(400, "Invalid faculty ID!");
@@ -157,16 +279,19 @@ exports.updateFaculty = async (req) => {
         faculty.name = body.name;
     }
 
-    if (body.designation !== undefined) {
-        faculty.designation = body.designation;
+    // Sending designations (replaces the whole list) — must still
+    // leave at least one tag; the schema validator rejects an empty
+    // array on save, so a faculty member can never end up with none.
+    if (body.designations !== undefined) {
+        faculty.designations = normalizeDesignations(body.designations);
     }
 
     if (body.qualification !== undefined) {
-        faculty.qualification = body.qualification;
+        faculty.qualification= normalizeStringArray(body.qualification || [],"qualification")
     }
 
     if (body.specialization !== undefined) {
-        faculty.specialization = body.specialization;
+        faculty.specialization = normalizeStringArray(body.specialization || [],"specialization");
     }
 
     if (body.phone !== undefined) {

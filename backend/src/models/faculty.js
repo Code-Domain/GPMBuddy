@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const facultySchema = new mongoose.Schema(
@@ -16,10 +15,22 @@ const facultySchema = new mongoose.Schema(
       required: true,
     },
 
-    designation: {
-      type: String,
+    // An array, not a single string, because a faculty member can
+    // hold several independent, orthogonal roles at once: a base rank
+    // ("Lecturer", "Professor"), a grade/level modifier ("Selection
+    // Grade"), and/or an additional charge ("HOD", "Principal") — e.g.
+    // ["Lecturer", "Selection Grade"] or ["Lecturer", "HOD"]. Storing
+    // these as separate atomic tags means "find all Lecturers" or
+    // "find all HODs" is a simple array-contains check, with no need
+    // to parse or semantically reason about compound strings like
+    // "Lecturer (Selection Grade)" or "Lecturer cum HOD".
+    designations: {
+      type: [String],
       required: true,
-      trim: true,
+      validate: {
+        validator: value => Array.isArray(value) && value.length > 0,
+        message: "At least one designation is required!"
+      }
     },
 
     qualification: {
@@ -80,6 +91,6 @@ const facultySchema = new mongoose.Schema(
 
 facultySchema.index({ name: 1 });
 facultySchema.index({ department: 1 });
-facultySchema.index({ designation: 1 });
+facultySchema.index({ designations: 1 });
 
 module.exports = mongoose.model("faculty", facultySchema);

@@ -70,7 +70,7 @@ const CONFIG = {
     update: (id) => `/faculty/update/${id}`,
     fields: [
       ["name", "Full name", "text", true], ["department", "Department code or name", "text", true],
-      ["designation", "Designation", "text", true], ["qualification", "Qualifications (one per line)", "list"],
+      ["designations", "Designations (e.g. Lecturer, HOD — one tag per line)", "list", true], ["qualification", "Qualifications (one per line)", "list"],
       ["specialization", "Specialization (one per line)", "list"], ["phone", "Phone", "text"],
       ["office", "Office", "text"], ["profileImage", "Profile photo", "file"],
       ["bio", "Biography", "textarea"], ["joiningYear", "Joining year", "number"],
@@ -166,7 +166,14 @@ const initialForm = (section, record) => {
       return;
     }
     let value = source?.[key];
-    if (["department", "principal", "headOfDepartment"].includes(key) && value && typeof value === "object") value = value._id || value.code || value.name || "";
+    if (value && typeof value === "object") {
+    if (key === "department") {
+        value = value.name || value.code || value._id || "";
+    } 
+    else if (key === "headOfDepartment" || "principal") {
+        value = value.name || value._id || "";
+    } 
+}
     if (Array.isArray(value)) {
       result[key] = type === "list"
         ? value.map((entry) => typeof entry === "string" ? entry : entry.description || "")
@@ -612,7 +619,7 @@ function RecordRow({ section, record, currentAdminId, onEdit, onDelete, busy }) 
   const titleKey = { admins: "username", departments: "name", events: "title", faculties: "name", facilities: "name", subjects: "name", aboutUs: "history", faqs: "question", uploads: "fileName" }[section];
   const detailKeys = {
     admins: ["name", "designation", "role"], departments: ["code", "established", "intake"],
-    events: ["date", "time", "venue"], faculties: ["designation", "department", "phone"],
+    events: ["date", "time", "venue"], faculties: ["designations", "department", "phone"],
     facilities: ["category", "department", "location", "availability"], subjects: ["departments", "type", "description"],
     aboutUs: ["vision", "mission", "principalMessage"],
     faqs: ["answer"], uploads: ["fileType", "uploadedBy", "fileUrl"],
