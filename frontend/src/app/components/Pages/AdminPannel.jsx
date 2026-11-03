@@ -169,10 +169,10 @@ const initialForm = (section, record) => {
     let value = source?.[key];
     if (value && typeof value === "object") {
     if (key === "department") {
-        value = value.name || value.code || value._id || "";
+        value = value.name || value.code || "";
     } 
-    else if (key === "headOfDepartment" || "principal") {
-        value = value.name || value._id || "";
+    else if (key === "headOfDepartment" || key==="principal") {
+        value = value.name ||  "";
     } 
 }
     if (Array.isArray(value)) {
