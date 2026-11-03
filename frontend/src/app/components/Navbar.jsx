@@ -259,8 +259,10 @@ import image_poly from "@/imports/poly.jpg";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Bot, ChevronDown, LogIn } from "lucide-react";
+import api from "../../services/api";
+import { departmentRouteId, unwrapApiData } from "../../services/publicContent";
 
-const departments = [
+const fallbackDepartments = [
   { label: "Civil Engineering", id: "dept-civil" },
   { label: "Computer Science & Engineering", id: "dept-cse" },
   { label: "Electrical Engineering", id: "dept-electrical" },
@@ -291,6 +293,21 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deptOpen, setDeptOpen] = useState(false);
   const [mobileDeptOpen, setMobileDeptOpen] = useState(false);
+  const [departments, setDepartments] = useState(fallbackDepartments);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/department").then((response) => {
+      const rows = unwrapApiData(response);
+      if (active && Array.isArray(rows) && rows.length) {
+        setDepartments(rows.map((department) => ({
+          label: department.name,
+          id: departmentRouteId(department),
+        })));
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const dropdownRef = useRef(null);
 

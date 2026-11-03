@@ -41,7 +41,7 @@ const buildPrompt = (question, classification, results, history, imageCandidates
     const { isGreetingOrSmallTalk } = classification;
 
     return `
-You are an AI assistant for the institute "Government Polytechnic Muzaffarpur, continuing an
+You are an AI assistant for the institute "Government Polytechnic Muzaffarpur", continuing an
 ongoing conversation with a student.
 
 Recent conversation:

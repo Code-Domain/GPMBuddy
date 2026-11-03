@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   GraduationCap,
   Users,
@@ -20,6 +21,8 @@ import {
   FileText,
   Link2,
 } from "lucide-react";
+import api from "../../services/api";
+import { departmentRouteId, getFacultyImageUrl, unwrapApiData } from "../../services/publicContent";
 
 const departmentsData = {
   "dept-civil": {
@@ -272,9 +275,96 @@ export default function DepartmentPage() {
   // FIXED: Get deptId directly from the URL parameter using React Router
   const { deptId } = useParams();
   const navigate = useNavigate();
+  const [databaseDepartment, setDatabaseDepartment] = useState(null);
+  const [databaseFaculty, setDatabaseFaculty] = useState([]);
+  const [databaseFacilities, setDatabaseFacilities] = useState([]);
+  const [databaseSubjects, setDatabaseSubjects] = useState([]);
 
-  // Fallback to CSE if the parameter is somehow missing, otherwise use the correct data
-  const data = departmentsData[deptId] || departmentsData["dept-cse"];
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([api.get("/department"), api.get("/faculty"), api.get("/facility"), api.get("/subject")]).then((results) => {
+      if (!active) return;
+      const departments = results[0].status === "fulfilled" ? unwrapApiData(results[0].value) : null;
+      const faculty = results[1].status === "fulfilled" ? unwrapApiData(results[1].value) : null;
+      const facilities = results[2].status === "fulfilled" ? unwrapApiData(results[2].value) : null;
+      const subjects = results[3].status === "fulfilled" ? unwrapApiData(results[3].value) : null;
+      if (!Array.isArray(departments)) return;
+
+      const staticDepartment = departmentsData[deptId];
+      const match = departments.find((department) =>
+        departmentRouteId(department) === deptId ||
+        (staticDepartment?.name && department.name?.trim().toLowerCase() === staticDepartment.name.trim().toLowerCase())
+      );
+      if (!match) return;
+      setDatabaseDepartment(match);
+
+      const departmentId = String(match._id || match.id || "");
+      const matchesDepartment = (entry) => {
+        const linked = entry?.department;
+        return String(linked?._id || linked?.id || linked || "") === departmentId ||
+          (typeof linked === "object" && linked?.name?.trim().toLowerCase() === match.name?.trim().toLowerCase()) ||
+          (typeof linked === "string" && linked.trim().toLowerCase() === match.name?.trim().toLowerCase());
+      };
+      if (Array.isArray(faculty)) setDatabaseFaculty(faculty.filter(matchesDepartment));
+      if (Array.isArray(facilities)) setDatabaseFacilities(facilities.filter(matchesDepartment));
+      if (Array.isArray(subjects)) {
+        const matchNames = [match.name, match.code, deptId.replace(/^dept-/, "")].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+        setDatabaseSubjects(subjects.filter((subject) => !subject.departments?.length || subject.departments.some((name) => matchNames.includes(String(name).trim().toLowerCase()))));
+      }
+    });
+    return () => { active = false; };
+  }, [deptId]);
+
+  // Database-backed department fields override the original page fields when present.
+  // If the API has no matching record, the original department page remains visible.
+  const originalData = departmentsData[deptId] || departmentsData["dept-cse"];
+  const databaseHod = databaseDepartment?.headOfDepartment;
+  const hodFacultyRecord = databaseHod && typeof databaseHod === "object"
+    ? databaseFaculty.find((member) => String(member._id || member.id) === String(databaseHod._id || databaseHod.id))
+    : null;
+  const dynamicHod = databaseHod && typeof databaseHod === "object" ? {
+    name: databaseHod.name || "",
+    designation: Array.isArray(databaseHod.designations || hodFacultyRecord?.designations)
+      ? (databaseHod.designations || hodFacultyRecord.designations).join(", ")
+      : databaseHod.designation || "Head of Department",
+    img: getFacultyImageUrl(databaseHod, api.defaults.baseURL) || originalData.hod.img,
+    msg: "",
+  } : null;
+  const data = databaseDepartment ? {
+    ...originalData,
+    name: databaseDepartment.name || originalData.name,
+    established: databaseDepartment.established || originalData.established,
+    desc: databaseDepartment.description || originalData.desc,
+    intake: databaseDepartment.intake !== undefined && databaseDepartment.intake !== null ? String(databaseDepartment.intake) : originalData.intake,
+    vision: databaseDepartment.vision || originalData.vision,
+    mission: Array.isArray(databaseDepartment.mission) && databaseDepartment.mission.length ? databaseDepartment.mission : originalData.mission,
+    hod: dynamicHod || originalData.hod,
+    faculty: databaseFaculty.length ? databaseFaculty.map((member) => ({
+      name: member.name,
+      role: Array.isArray(member.designations) ? member.designations.join(", ") : "",
+      exp: member.joiningYear ? `${Math.max(0, new Date().getFullYear() - Number(member.joiningYear))} Years` : "—",
+      image: getFacultyImageUrl(member, api.defaults.baseURL),
+      qualification: member.qualification || [],
+      specialization: member.specialization || [],
+      phone: member.phone || "",
+      office: member.office || "",
+      bio: member.bio || "",
+    })) : originalData.faculty,
+    labs: databaseFacilities.length ? databaseFacilities.map((facility) => ({
+      name: facility.name,
+      category: facility.category || "",
+      desc: facility.description || "",
+      image: facility.images?.[0] || "",
+      location: facility.location ? [facility.location.type, facility.location.place, facility.location.floor, facility.location.room].filter(Boolean).join(" · ") : "",
+      availability: facility.availability || null,
+      contact: facility.contact || null,
+      features: facility.features || [],
+      inCharge: facility.inCharge || null,
+    })) : originalData.labs,
+    peo: Array.isArray(databaseDepartment.peo) ? databaseDepartment.peo.filter(Boolean) : [],
+    po: Array.isArray(databaseDepartment.po) ? databaseDepartment.po.filter(Boolean) : [],
+    pso: Array.isArray(databaseDepartment.pso) ? databaseDepartment.pso.filter(Boolean) : [],
+  } : { ...originalData, peo: [], po: [], pso: [] };
   const DeptIcon = data.icon || Building2;
 
   // Helper for routing
@@ -327,8 +417,8 @@ export default function DepartmentPage() {
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4">
           {[
             { icon: GraduationCap, label: "Established", val: data.established },
-            { icon: Users, label: "Intake Capacity", val: data.intake.includes("N/A") ? "Core Branch" : data.intake + " Seats" },
-            { icon: FlaskConical, label: "Laboratories", val: data.labs.length + " Labs" },
+            { icon: Users, label: "Intake Capacity", val: String(data.intake).includes("N/A") ? "Core Branch" : data.intake + " Seats" },
+            { icon: FlaskConical, label: databaseFacilities.length ? "Facilities" : "Laboratories", val: data.labs.length + (databaseFacilities.length ? " Items" : " Labs") },
             { icon: BookOpen, label: "Program", val: "Diploma" },
           ].map((s, i) => (
             <div
@@ -346,13 +436,13 @@ export default function DepartmentPage() {
       </div>
 
       {/* ===================== MAIN LAYOUT ===================== */}
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[1fr_320px] gap-8">
+      <div className="mx-auto grid w-full max-w-[1320px] min-w-0 grid-cols-1 gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         
         {/* ----------- LEFT MAIN CONTENT ----------- */}
-        <main className="space-y-8">
+        <main className="contents">
           
           {/* About Section */}
-          <section className="bg-white border border-gray-200">
+          <section className="order-1 self-start bg-white border border-gray-200 lg:col-start-1 lg:row-start-1">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#FF9933]" />
               <h2 className="text-[15px] font-bold uppercase tracking-wider">About the Department</h2>
@@ -375,13 +465,33 @@ export default function DepartmentPage() {
                   <Target className="w-5 h-5 text-[#FF9933]" />
                   <h3 className="text-[14px] font-bold text-[#0b1f5e] uppercase">Mission</h3>
                 </div>
-                <p className="text-[13px] text-gray-600 leading-relaxed text-justify">{data.mission}</p>
+                 {Array.isArray(data.mission)
+                   ? <ul className="list-disc space-y-2 pl-5 text-[13px] text-gray-600 leading-relaxed">{data.mission.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                   : <p className="text-[13px] text-gray-600 leading-relaxed text-justify">{data.mission}</p>}
               </div>
             </div>
           </section>
 
+          {(data.peo.length > 0 || data.po.length > 0 || data.pso.length > 0) && <section className="order-3 grid gap-5 md:grid-cols-2 lg:col-span-2">
+            {[["Program Educational Objectives", data.peo], ["Program Outcomes", data.po], ["Program Specific Outcomes", data.pso]].filter(([, items]) => items.length > 0).map(([title, items]) => <article key={title} className={title === "Program Specific Outcomes" ? "border border-gray-200 bg-white p-5 md:col-span-2" : "border border-gray-200 bg-white p-5"}>
+              <h2 className="mb-3 text-[14px] font-bold uppercase tracking-wider text-[#0b1f5e]">{title}</h2>
+              <ul className={`list-disc pl-5 text-[13px] leading-relaxed text-gray-600 ${title === "Program Specific Outcomes" ? "grid gap-x-8 gap-y-2 md:grid-cols-2" : "space-y-2"}`}>{items.map((item, index) => <li key={index}>{item}</li>)}</ul>
+            </article>)}
+          </section>}
+
+          {databaseSubjects.length > 0 && <section className="order-4 overflow-hidden border border-gray-200 bg-white lg:col-span-2">
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-[#0f172b] px-5 py-3 text-white"><BookMarked className="h-4 w-4 text-[#FF9933]" /><h2 className="text-[15px] font-bold uppercase tracking-wider">Subjects &amp; syllabus</h2></div>
+            <div className="divide-y divide-gray-100">
+              {databaseSubjects.map((subject, index) => <article key={subject._id || index} className="p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold text-[#0b1f5e]">{subject.name}</h3>{subject.type?.length > 0 && <span className="text-xs text-gray-500">{subject.type.join(" · ")}</span>}</div>
+                {subject.description && <p className="mt-2 text-[13px] leading-relaxed text-gray-600">{subject.description}</p>}
+                {subject.syllabus?.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[13px] text-gray-600">{subject.syllabus.map((unit, unitIndex) => <li key={unitIndex}>{unit}</li>)}</ul>}
+              </article>)}
+            </div>
+          </section>}
+
           {/* Labs Section */}
-          <section className="bg-white border border-gray-200">
+          <section className="order-5 bg-white border border-gray-200 lg:col-span-2">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <FlaskConical className="w-4 h-4 text-[#FF9933]" />
               <h2 className="text-[15px] font-bold uppercase tracking-wider">Laboratories & Facilities</h2>
@@ -389,20 +499,32 @@ export default function DepartmentPage() {
             <div className="grid md:grid-cols-2 divide-x divide-gray-200">
               {data.labs.map((lab, i) => (
                 <div key={i} className={`p-5 border-b border-gray-200 ${i % 2 !== 0 ? "" : "md:border-r"}`}>
+                  {lab.image && <img src={lab.image} alt={lab.name} loading="lazy" className="mb-3 h-36 w-full rounded-lg object-cover" />}
+                  {lab.category && <span className="mb-1 inline-block text-[10px] font-bold uppercase tracking-wider text-emerald-700">{lab.category}</span>}
                   <h3 className="text-[14px] font-bold text-[#0b1f5e] mb-1.5">{lab.name}</h3>
                   <p className="text-[13px] text-gray-600 leading-relaxed">{lab.desc}</p>
+                  {lab.location && <p className="mt-2 text-[12px] text-gray-500">Location: {lab.location}</p>}
+                  {lab.availability && <div className="mt-2 text-[12px] text-gray-500">
+                    {lab.availability.status && <span>{lab.availability.status}</span>}
+                    {lab.availability.days?.length > 0 && <span> · {lab.availability.days.join(", ")}</span>}
+                    {(lab.availability.openingTime || lab.availability.closingTime) && <span> · {lab.availability.openingTime || ""}{lab.availability.openingTime && lab.availability.closingTime ? "–" : ""}{lab.availability.closingTime || ""}</span>}
+                  </div>}
+                  {lab.features?.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-gray-600">{lab.features.map((feature, featureIndex) => <li key={featureIndex}>{feature}</li>)}</ul>}
+                  {lab.inCharge?.name && <p className="mt-2 text-[12px] text-gray-600">In charge: {lab.inCharge.name}{lab.inCharge.designation ? ` · ${lab.inCharge.designation}` : ""}{lab.inCharge.contact ? ` · ${lab.inCharge.contact}` : ""}</p>}
+                  {(lab.contact?.phone || lab.contact?.email || lab.contact?.additionalInfo) && <p className="mt-2 text-[12px] text-gray-600">{[lab.contact.phone, lab.contact.email, lab.contact.additionalInfo].filter(Boolean).join(" · ")}</p>}
                 </div>
               ))}
             </div>
           </section>
 
           {/* Faculty Section (Table) */}
-          <section className="bg-white border border-gray-200 overflow-hidden">
+          <section className="order-6 bg-white border border-gray-200 overflow-hidden lg:col-span-2">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <Users className="w-4 h-4 text-[#FF9933]" />
               <h2 className="text-[15px] font-bold uppercase tracking-wider">Faculty Members</h2>
             </div>
-            <table className="w-full text-sm border-collapse">
+            <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead className="bg-[#f6f3ea] text-[#0b1f5e] border-b border-gray-200">
                 <tr>
                   <th className="text-left p-3 font-semibold border-r border-gray-200 w-12">S.No.</th>
@@ -415,18 +537,19 @@ export default function DepartmentPage() {
                 {data.faculty.map((f, i) => (
                   <tr key={i} className="border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors">
                     <td className="p-3 border-r border-gray-200 text-gray-500 font-medium">{i + 1}.</td>
-                    <td className="p-3 border-r border-gray-200 font-medium text-[#0b1f5e]">{f.name}</td>
-                    <td className="p-3 border-r border-gray-200 text-gray-700">{f.role}</td>
-                    <td className="p-3 text-gray-700">{f.exp}</td>
+                    <td className="p-3 border-r border-gray-200 font-medium text-[#0b1f5e]"><span className="flex items-center gap-3">{f.image && <img src={f.image} alt={f.name ? `${f.name} portrait` : "Faculty portrait"} loading="lazy" className="h-16 w-16 flex-shrink-0 rounded-full border-2 border-white object-cover shadow-sm" />}{f.name}</span>{f.qualification?.length > 0 && <p className="mt-1 text-xs font-normal text-gray-500">{f.qualification.join(", ")}</p>}{f.bio && <p className="mt-1 max-w-sm text-xs font-normal text-gray-500">{f.bio}</p>}</td>
+                    <td className="p-3 border-r border-gray-200 text-gray-700">{f.role}{f.specialization?.length > 0 && <p className="mt-1 text-xs text-gray-500">Specialization: {f.specialization.join(", ")}</p>}</td>
+                    <td className="p-3 text-gray-700">{f.exp}{f.phone && <p className="mt-1 text-xs text-gray-500">{f.phone}</p>}{f.office && <p className="mt-1 text-xs text-gray-500">Office {f.office}</p>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </section>
         </main>
 
         {/* ----------- RIGHT SIDEBAR ----------- */}
-        <aside className="space-y-6">
+        <aside className="order-2 space-y-6 lg:col-start-2 lg:row-start-1">
           
           {/* HOD Profile Box */}
           <div className="bg-white border border-gray-200">
@@ -437,17 +560,17 @@ export default function DepartmentPage() {
             <div className="p-5">
               <div className="flex flex-col items-center text-center mb-4">
                 <div className="w-32 h-40 border-2 border-gray-200 p-1 mb-3">
-                  <img src={data.hod.img} alt={data.hod.name} className="w-full h-full object-cover" />
+                  {data.hod.img ? <img src={data.hod.img} alt={data.hod.name} className="w-full h-full object-cover" /> : <div className="grid h-full place-items-center bg-gray-100 text-xs text-gray-400">Photo unavailable</div>}
                 </div>
                 <h4 className="text-[16px] font-bold text-[#0b1f5e]">{data.hod.name}</h4>
-                <p className="text-[12px] text-gray-500 font-medium uppercase tracking-wider mt-1">Professor & HOD</p>
+                <p className="text-[12px] text-gray-500 font-medium uppercase tracking-wider mt-1">{data.hod.designation || "Professor & HOD"}</p>
               </div>
-              
-              <div className="border-t border-gray-200 pt-4">
+
+              {data.hod.msg && <div className="border-t border-gray-200 pt-4">
                 <p className="text-[13px] text-gray-700 leading-relaxed text-justify italic">
                   "{data.hod.msg}"
                 </p>
-              </div>
+              </div>}
             </div>
           </div>
 

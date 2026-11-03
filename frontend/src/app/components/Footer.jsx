@@ -1,9 +1,12 @@
 import image_poly from "@/imports/poly.jpg";
+import { useEffect, useState } from "react";
 import { Mail, Phone, MapPin, Bot, ChevronDown, ArrowUp } from "lucide-react";
+import api from "../../services/api";
+import { departmentRouteId, unwrapApiData } from "../../services/publicContent";
 
 
 // Reusing the exact same departments array for consistency
-const departments = [
+const fallbackDepartments = [
   { label: "Civil Engineering", id: "dept-civil" },
   { label: "Computer Science & Engineering", id: "dept-cse" },
   { label: "Electrical Engineering", id: "dept-electrical" },
@@ -16,6 +19,22 @@ const departments = [
 ];
 
 export function Footer() {
+  const [departments, setDepartments] = useState(fallbackDepartments);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/department").then((response) => {
+      const rows = unwrapApiData(response);
+      if (active && Array.isArray(rows) && rows.length) {
+        setDepartments(rows.map((department) => ({
+          label: department.name,
+          id: departmentRouteId(department),
+        })));
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   // Dummy navigate function for demonstration
   const onNavigate = (path) => {
     if (path === "home") window.location.href = "/";
