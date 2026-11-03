@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import image_campus from "../../imports/clg.jpg";
 import { Bot, MapPin, ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
+import api from "../../services/api";
+import { departmentRouteId, getFacultyImageUrl, unwrapApiData } from "../../services/publicContent";
 
 
 /* ---------- Tiny inline SVG icons ---------- */
@@ -36,9 +38,56 @@ function StatusPill({ type }) {
   return <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full tracking-wider ${map[type] || map.OLD}`}>{type}</span>;
 }
 
+function ReadMoreText({ text, className = "", limit = 220, alignActionRight = false }) {
+  const [expanded, setExpanded] = useState(false);
+  const content = typeof text === "string" ? text : "";
+  if (!content) return null;
+
+  const needsToggle = content.length > limit;
+  return (
+    <div className={className}>
+      <p style={needsToggle && !expanded ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" } : undefined}>
+        {content}
+      </p>
+      {needsToggle && <button type="button" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} className={`mt-1 text-[13px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline ${alignActionRight ? "ml-auto block text-right" : ""}`}>
+        {expanded ? "Read less" : "Read more"}
+      </button>}
+    </div>
+  );
+}
+
 /* ---------- Main Component ---------- */
 export default function HeroSection() {
   const navigate = useNavigate();
+  const [databaseDepartments, setDatabaseDepartments] = useState([]);
+  const [databaseFaculty, setDatabaseFaculty] = useState([]);
+  const [databaseEvents, setDatabaseEvents] = useState([]);
+  const [databaseFacilities, setDatabaseFacilities] = useState([]);
+  const [databaseAbout, setDatabaseAbout] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([
+      api.get("/department"),
+      api.get("/faculty"),
+      api.get("/events"),
+      api.get("/facility"),
+      api.get("/about"),
+    ]).then(([departmentsResult, facultyResult, eventsResult, facilitiesResult, aboutResult]) => {
+      if (!active) return;
+      const departments = departmentsResult.status === "fulfilled" ? unwrapApiData(departmentsResult.value) : null;
+      const faculty = facultyResult.status === "fulfilled" ? unwrapApiData(facultyResult.value) : null;
+      const events = eventsResult.status === "fulfilled" ? unwrapApiData(eventsResult.value) : null;
+      const facilities = facilitiesResult.status === "fulfilled" ? unwrapApiData(facilitiesResult.value) : null;
+      const about = aboutResult.status === "fulfilled" ? unwrapApiData(aboutResult.value) : null;
+      if (Array.isArray(departments)) setDatabaseDepartments(departments);
+      if (Array.isArray(faculty)) setDatabaseFaculty(faculty);
+      if (Array.isArray(events)) setDatabaseEvents(events);
+      if (Array.isArray(facilities)) setDatabaseFacilities(facilities);
+      if (about && typeof about === "object") setDatabaseAbout(about);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const els = document.querySelectorAll(".reveal");
@@ -55,7 +104,7 @@ export default function HeroSection() {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, []);
+  }, [databaseDepartments, databaseEvents, databaseFacilities, databaseAbout]);
 
 
   const notices = [
@@ -87,6 +136,39 @@ export default function HeroSection() {
   ];
 
   const recruiters = ["TCS", "Infosys", "L&T", "Bajaj", "Mahindra", "ITC", "Tata Motors", "Sail", "BSNL", "BEL", "Wipro", "Capgemini"];
+
+  const displayDepartments = databaseDepartments.length
+    ? databaseDepartments.map((department) => {
+      const path = departmentRouteId(department);
+      const original = deptCards.find((item) => item.path === path);
+      return {
+        name: department.name,
+        path,
+        img: original?.img || image_campus,
+        desc: department.description || original?.desc || "",
+      };
+    })
+    : deptCards;
+
+  const displayEvents = databaseEvents.length
+    ? databaseEvents.map((event) => ({
+      ...event,
+      title: event.title,
+      date: event.date ? new Date(event.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "",
+      tag: event.date && new Date(event.date) >= new Date(new Date().setHours(0, 0, 0, 0)) ? "NEW" : "IMP",
+      meta: [event.time, event.venue].filter(Boolean).join(" · "),
+    }))
+    : [];
+  const homeNotices = [...displayEvents, ...notices];
+  const aboutMissions = Array.isArray(databaseAbout?.mission)
+    ? databaseAbout.mission.filter(Boolean)
+    : [];
+  const aboutParagraphs = databaseAbout
+    ? [databaseAbout.history, databaseAbout.vision, ...aboutMissions].filter(Boolean)
+    : [
+      "Government Polytechnic, Muzaffarpur is one of the oldest polytechnics in the eastern region. Affiliated to the State Board of Technical Education, Bihar and approved by AICTE, the institute runs diploma programs across nine disciplines with a strong focus on practical training and industry readiness.",
+      "The 28-acre campus houses workshops, modern laboratories, hostels, a central library with over 35,000 volumes, sports facilities and a T&P cell that consistently places over 85% of eligible students.",
+    ];
 
   return (
     <div className="bg-slate-50 text-[#0b1f5e] font-jakarta" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
@@ -209,7 +291,7 @@ export default function HeroSection() {
                     label:"Years of Excellence"
                   },
                   {
-                    value:"6",
+                    value: databaseDepartments.length ? String(databaseDepartments.length) : "6",
                     label:"Departments"
                   },
                   {
@@ -248,7 +330,7 @@ export default function HeroSection() {
             </div>
             <div className="flex-1 overflow-hidden py-3 pl-8">
               <div className="gpm-marquee whitespace-nowrap flex gap-12 text-[14px] text-slate-600 hover:[animation-play-state:paused]">
-                {[...notices, ...notices].map((n, i) => (
+                {[...homeNotices, ...homeNotices].map((n, i) => (
                   <span key={i} className="inline-flex items-center gap-2">
                     <span className="text-[#FF9933]">●</span>
                     <span className="font-medium">{n.title}</span>
@@ -273,21 +355,18 @@ export default function HeroSection() {
             <h2 className="text-[32px] sm:text-[40px] font-extrabold text-[#0b1f5e] mb-4" style={{ letterSpacing: "-0.02em" }}>
               Building Bihar's technical backbone since 1949.
             </h2>
-            <p className="text-slate-600 text-[16px] leading-relaxed mb-4">
-              Government Polytechnic, Muzaffarpur is one of the oldest polytechnics in the eastern region. Affiliated to the State Board of Technical Education, Bihar and approved by AICTE, the institute runs diploma programs across nine disciplines with a strong focus on practical training and industry readiness.
-            </p>
-            <p className="text-slate-600 text-[16px] leading-relaxed mb-8">
-              The 28-acre campus houses workshops, modern laboratories, hostels, a central library with over 35,000 volumes, sports facilities and a T&P cell that consistently places over 85% of eligible students.
-            </p>
+            {aboutParagraphs.map((paragraph, index) => (
+              <ReadMoreText key={index} text={paragraph} limit={260} className={`text-slate-600 text-[16px] leading-relaxed ${index === aboutParagraphs.length - 1 ? "mb-8" : "mb-4"}`} />
+            ))}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
               {[
                 { icon: Icon.Building, v: "28 acres", l: "Campus area", bg: "bg-blue-50", text: "text-blue-600" },
-                { icon: Icon.Users, v: "120+", l: "Faculty & staff", bg: "bg-purple-50", text: "text-purple-600" },
+                { icon: Icon.Users, v: databaseFaculty.length ? String(databaseFaculty.length) : "120+", l: "Faculty & staff", bg: "bg-purple-50", text: "text-purple-600" },
                 { icon: Icon.BookOpen, v: "35,000+", l: "Library volumes", bg: "bg-emerald-50", text: "text-emerald-600" },
                 { icon: Icon.Briefcase, v: "85%+", l: "Avg placement", bg: "bg-amber-50", text: "text-amber-600" },
                 { icon: Icon.Award, v: "AICTE", l: "Approved", bg: "bg-rose-50", text: "text-rose-600" },
-                { icon: Icon.GradCap, v: "9", l: "Diploma branches", bg: "bg-indigo-50", text: "text-indigo-600" },
+                { icon: Icon.GradCap, v: databaseDepartments.length ? String(databaseDepartments.length) : "9", l: "Diploma branches", bg: "bg-indigo-50", text: "text-indigo-600" },
               ].map((s) => (
                 <div key={s.l} className="bg-white p-5 flex items-center gap-4 rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-100">
                   <div className={`w-12 h-12 rounded-xl ${s.bg} ${s.text} flex items-center justify-center`}>
@@ -301,19 +380,31 @@ export default function HeroSection() {
               ))}
             </div>
 
+            {databaseAbout?.achievements?.length > 0 && <div className="mb-10 rounded-2xl border border-amber-100 bg-amber-50/70 p-5">
+              <h3 className="mb-3 text-[14px] font-extrabold uppercase tracking-wide text-[#0b1f5e]">College achievements</h3>
+              <ul className="space-y-3">
+                {databaseAbout.achievements.map((achievement, index) => <li key={achievement._id || index}>
+                  <div className="font-bold text-[#0b1f5e]">{achievement.title}{achievement.year ? ` · ${achievement.year}` : ""}</div>
+                  {achievement.description && <ReadMoreText text={achievement.description} limit={180} className="mt-1 text-[13px] leading-relaxed text-slate-600" />}
+                </li>)}
+              </ul>
+            </div>}
+
             {/* Principal's Message Card */}
             <div className="bg-gradient-to-br from-[#0b1f5e] to-[#1e3a8a] rounded-3xl p-8 text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#FF9933]/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
               <div className="relative flex items-start gap-6">
-                <div className="w-20 h-24 bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden flex-shrink-0 border border-white/20">
-                  <img src="https://picsum.photos/seed/gpm-principal-portrait/120/160" alt="Principal" className="w-full h-full object-cover" />
+                <div className="w-20 h-24 bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden flex-shrink-0 border border-white/20 grid place-items-center">
+                  {databaseAbout?.principal && getFacultyImageUrl(databaseAbout.principal, api.defaults.baseURL)
+                    ? <img src={getFacultyImageUrl(databaseAbout.principal, api.defaults.baseURL)} alt={databaseAbout.principal.name || "Principal"} className="w-full h-full object-cover" />
+                    : <img src="https://picsum.photos/seed/gpm-principal-portrait/120/160" alt="Principal" className="w-full h-full object-cover" />}
                 </div>
                 <div>
                   <div className="text-[12px] font-bold uppercase tracking-wider text-[#FF9933] mb-3">Principal's Message</div>
                   <p className="text-[15px] text-white/90 leading-relaxed italic mb-4">
-                    "Technical education must serve the cause of equitable development. At GPM Muzaffarpur, we strive to produce diploma engineers who are not just employable, but who carry forward the tradition of integrity, craftsmanship and nation-building."
+                    databaseAbout?.principalMessage || "Technical education must serve the cause of equitable development. At GPM Muzaffarpur, we strive to produce diploma engineers who are not just employable, but who carry forward the tradition of integrity, craftsmanship and nation-building."
                   </p>
-                  <div className="text-[14px] font-bold text-white">— Dr. R. K. Thakur</div>
+                  <div className="text-[14px] font-bold text-white">— {databaseAbout?.principal?.name || "Dr. R. K. Thakur"}</div>
                 </div>
               </div>
             </div>
@@ -326,17 +417,19 @@ export default function HeroSection() {
                 <h3 className="text-[18px] font-extrabold text-[#0b1f5e] flex items-center gap-2">
                   <span className="bg-amber-50 p-2 rounded-xl text-amber-500"><Icon.Bell className="w-5 h-5" /></span> Notices &amp; Circulars
                 </h3>
-                <span className="text-[11px] bg-red-50 text-red-500 px-3 py-1 rounded-full font-bold">{notices.filter(n => n.tag === "NEW").length} New</span>
+                <span className="text-[11px] bg-red-50 text-red-500 px-3 py-1 rounded-full font-bold">{homeNotices.filter(n => n.tag === "NEW").length} New</span>
               </div>
               <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto custom-scroll">
-                {notices.map((n, i) => (
+                {homeNotices.map((n, i) => (
                   <a key={i} href="#" className="group flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all duration-200 cursor-pointer">
                     <StatusPill type={n.tag} />
                     <div className="flex-1">
                       <div className="text-[14px] text-[#0b1f5e] font-semibold leading-snug group-hover:text-indigo-600 transition-colors">{n.title}</div>
+                      {n.description && <ReadMoreText text={n.description} limit={150} className="mt-1 text-[12px] leading-relaxed text-slate-500" />}
                       <div className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 font-medium">
                         <Icon.Calendar className="w-3.5 h-3.5" /> {n.date}
                       </div>
+                      {n.meta && <div className="mt-1 text-[11px] font-medium text-slate-500">{n.meta}</div>}
                     </div>
                   </a>
                 ))}
@@ -359,12 +452,12 @@ export default function HeroSection() {
               <Icon.GradCap className="w-3.5 h-3.5" /> Academic Departments
             </div>
             <h2 className="text-[32px] sm:text-[40px] font-extrabold text-[#0b1f5e]" style={{ letterSpacing: "-0.02em" }}>
-              Nine disciplines. One mission.
+              {databaseDepartments.length ? `${databaseDepartments.length} disciplines. One mission.` : "Nine disciplines. One mission."}
             </h2>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {deptCards.map((d) => (
+            {displayDepartments.map((d) => (
               <article key={d.name} className="group bg-slate-50 rounded-3xl border border-slate-100 hover:border-indigo-200 hover:bg-white hover:shadow-2xl hover:shadow-indigo-100/50 transition-all duration-300 hover:-translate-y-2 overflow-hidden cursor-pointer" onClick={() => navigate(`/dept/${d.path}`)}>
                 <div className="relative h-52 overflow-hidden rounded-t-3xl">
                   <img src={d.img} alt={d.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -373,7 +466,7 @@ export default function HeroSection() {
                 </div>
                 <div className="p-6">
                   <h3 className="text-[20px] font-extrabold text-[#0b1f5e] mb-2 group-hover:text-indigo-600 transition-colors">{d.name}</h3>
-                  <p className="text-[14px] text-slate-500 leading-relaxed mb-4">{d.desc}</p>
+                  {d.desc && <ReadMoreText text={d.desc} limit={190} alignActionRight className="text-[14px] text-slate-500 leading-relaxed mb-4" />}
                   <span className="inline-flex items-center gap-2 text-[14px] font-bold text-indigo-600 group-hover:gap-3 transition-all">
                     Know More <Icon.ArrowRight className="w-4 h-4" />
                   </span>
@@ -383,6 +476,33 @@ export default function HeroSection() {
           </div>
         </div>
       </section>
+
+      {databaseFacilities.length > 0 && <section className="reveal bg-[#f8fafc] py-16">
+        <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
+          <div className="mb-10 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-bold uppercase tracking-wider text-emerald-700"><Icon.Building className="h-3.5 w-3.5" /> Campus Facilities</div>
+            <h2 className="text-[32px] font-extrabold text-[#0b1f5e] sm:text-[40px]" style={{ letterSpacing: "-0.02em" }}>Explore our campus resources.</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {databaseFacilities.map((facility) => {
+              const location = facility.location ? [facility.location.type, facility.location.place, facility.location.floor, facility.location.room].filter(Boolean).join(" · ") : "";
+              return <article key={facility._id || facility.name} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                {facility.images?.[0] && <img src={facility.images[0]} alt={facility.name} loading="lazy" className="h-48 w-full object-cover" />}
+                <div className="p-5">
+                  {facility.category && <span className="mb-2 inline-block rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">{facility.category}</span>}
+                  <h3 className="text-[18px] font-extrabold text-[#0b1f5e]">{facility.name}</h3>
+                  {facility.description && <ReadMoreText text={facility.description} limit={200} className="mt-2 text-[13px] leading-6 text-slate-600" />}
+                  {location && <p className="mt-3 text-[12px] font-medium text-slate-500">{location}</p>}
+                  {facility.availability && <p className="mt-1 text-[11px] text-slate-500">{[facility.availability.status, facility.availability.days?.join(", "), facility.availability.openingTime && facility.availability.closingTime ? `${facility.availability.openingTime}–${facility.availability.closingTime}` : facility.availability.openingTime || facility.availability.closingTime].filter(Boolean).join(" · ")}</p>}
+                  {facility.features?.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[12px] text-slate-600">{facility.features.map((feature, index) => <li key={index}>{feature}</li>)}</ul>}
+                  {facility.inCharge?.name && <p className="mt-3 text-[12px] text-slate-600">In charge: {facility.inCharge.name}{facility.inCharge.designation ? ` · ${facility.inCharge.designation}` : ""}</p>}
+                  {(facility.contact?.phone || facility.contact?.email || facility.contact?.additionalInfo) && <p className="mt-2 text-[12px] text-slate-500">{[facility.contact.phone, facility.contact.email, facility.contact.additionalInfo].filter(Boolean).join(" · ")}</p>}
+                </div>
+              </article>;
+            })}
+          </div>
+        </div>
+      </section>}
 
       {/* ===================== PLACEMENTS SNAPSHOT ===================== */}
       <section className="py-16 bg-slate-50 reveal">

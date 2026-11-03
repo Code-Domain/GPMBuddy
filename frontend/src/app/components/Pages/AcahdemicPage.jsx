@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import api from "../../../services/api";
+import { unwrapApiData } from "../../../services/publicContent";
 import {
   BookOpen,
   GraduationCap,
@@ -13,6 +16,25 @@ import {
 } from "lucide-react";
 
 export default function AcademicsPage({ onNavigate }) {
+  const [databaseAcademic, setDatabaseAcademic] = useState(null);
+  const [databaseSubjects, setDatabaseSubjects] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([api.get("/academics"), api.get("/subject")]).then(([academicResult, subjectsResult]) => {
+      if (!active) return;
+      if (academicResult.status === "fulfilled") {
+        const data = unwrapApiData(academicResult.value);
+        if (data && typeof data === "object") setDatabaseAcademic(data);
+      }
+      if (subjectsResult.status === "fulfilled") {
+        const data = unwrapApiData(subjectsResult.value);
+        if (Array.isArray(data)) setDatabaseSubjects(data);
+      }
+    });
+    return () => { active = false; };
+  }, []);
+
   const syllabusData = [
     {
       branch: "Computer Science & Engineering",
@@ -71,6 +93,16 @@ export default function AcademicsPage({ onNavigate }) {
     { range: "40 - 49", grade: "C", points: "5", status: "Pass" },
     { range: "Below 40", grade: "F", points: "0", status: "Fail" },
   ];
+
+  const admission = databaseAcademic?.admission;
+  const databaseEligibility = Array.isArray(admission?.eligibility) ? admission.eligibility.filter((item) => item?.title || item?.description) : [];
+  const databaseExamination = databaseAcademic?.examination;
+  const examItems = [
+    ...(Array.isArray(databaseExamination?.rules) ? databaseExamination.rules : []),
+    ...(Array.isArray(databaseExamination?.guidelines) ? databaseExamination.guidelines : []),
+  ].filter((item, index, all) => item?.title || item?.description ? all.findIndex((other) => other?.title === item.title && other?.description === item.description) === index : false);
+  const evaluationMethods = Array.isArray(databaseExamination?.evaluationMethods) ? databaseExamination.evaluationMethods.filter((item) => item?.title || item?.description) : [];
+  const curriculumUrl = databaseAcademic?.curriculum;
 
   return (
     <div className="bg-[#f6f3ea] text-[#0b1f5e] font-roboto min-h-screen" style={{ fontFamily: "'Roboto', system-ui, sans-serif" }}>
@@ -137,16 +169,19 @@ export default function AcademicsPage({ onNavigate }) {
           <section className="bg-white border border-gray-200">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <PenTool className="w-4 h-4 text-[#FF9933]" />
-              <h2 className="text-[15px] font-bold uppercase tracking-wider">Admission Process & Eligibility</h2>
+              <h2 className="text-[15px] font-bold uppercase tracking-wider">{admission?.title || "Admission Process & Eligibility"}</h2>
             </div>
             <div className="p-6 grid md:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-[16px] font-bold text-[#0b1f5e] mb-3 border-b border-gray-200 pb-2">Eligibility Criteria</h3>
+                {admission?.description && <p className="mb-3 text-[14px] leading-relaxed text-gray-600">{admission.description}</p>}
                 <ul className="space-y-2 text-[14px] text-gray-700 text-justify">
-                  <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Passed 10th (Matriculation) from a recognized board.</li>
-                  <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Minimum 35% marks in 10th board examination.</li>
-                  <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Medical fitness certificate as per norms.</li>
-                  <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Must qualify the Diploma Certificate Entrance Competitive Examination (DCECE) conducted by BCECEB.</li>
+                  {databaseEligibility.length ? databaseEligibility.map((item, index) => <li key={index} className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /><span>{item.title}{item.description ? `: ${item.description}` : ""}</span></li>) : <>
+                    <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Passed 10th (Matriculation) from a recognized board.</li>
+                    <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Minimum 35% marks in 10th board examination.</li>
+                    <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Medical fitness certificate as per norms.</li>
+                    <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-1" /> Must qualify the Diploma Certificate Entrance Competitive Examination (DCECE) conducted by BCECEB.</li>
+                  </>}
                 </ul>
               </div>
               <div>
@@ -164,16 +199,46 @@ export default function AcademicsPage({ onNavigate }) {
                   <div className="flex justify-between bg-[#f6f3ea] px-3 py-1.5"><span>Disabled Quota</span><span className="text-[#0b1f5e]">3%</span></div>
                 </div>
               </div>
+              {(admission?.steps?.length || admission?.requiredDocuments?.length || admission?.fees?.length || admission?.officialLink) && <div className="md:col-span-2 grid gap-6 border-t border-gray-200 pt-5 md:grid-cols-2">
+                {admission?.steps?.length > 0 && <div><h3 className="mb-3 border-b border-gray-200 pb-2 text-[16px] font-bold text-[#0b1f5e]">Admission steps</h3><ol className="list-decimal space-y-2 pl-5 text-[14px] text-gray-700">{admission.steps.map((step, index) => <li key={index}><b>{step.title}</b>{step.description ? ` — ${step.description}` : ""}</li>)}</ol></div>}
+                <div className="space-y-5">
+                  {admission.requiredDocuments?.length > 0 && <div><h3 className="mb-2 text-[14px] font-bold text-[#0b1f5e]">Required documents</h3><ul className="list-disc space-y-1 pl-5 text-[13px] text-gray-700">{admission.requiredDocuments.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+                  {admission.fees?.length > 0 && <div><h3 className="mb-2 text-[14px] font-bold text-[#0b1f5e]">Fees</h3><ul className="space-y-1 text-[13px] text-gray-700">{admission.fees.map((item, index) => <li key={index}>{item.description}{item.amount ? ` — ${item.amount}` : ""}{item.mode ? ` (${item.mode})` : ""}</li>)}</ul></div>}
+                  {admission.officialLink && <a href={admission.officialLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[13px] font-bold text-blue-700 underline">Official admission information</a>}
+                </div>
+              </div>}
             </div>
           </section>
+
+          {["registration", "enrollment"].map((key) => {
+            const process = databaseAcademic?.[key];
+            if (!process || !(process.description || process.steps?.description || process.fees?.amount || process.officialLink || process.steps?.officialLink)) return null;
+            return <section key={key} className="border border-gray-200 bg-white">
+              <div className="flex items-center gap-2 border-b border-gray-200 bg-[#0f172b] px-5 py-3 text-white"><FileText className="h-4 w-4 text-[#FF9933]" /><h2 className="text-[15px] font-bold uppercase tracking-wider">{process.title || `${key} Process`}</h2></div>
+              <div className="space-y-3 p-5 text-[14px] text-gray-700">
+                {process.description && <p>{process.description}</p>}
+                {process.steps?.description && <p>{process.steps.description}</p>}
+                {process.fees?.amount && <p><b>Fee:</b> {process.fees.amount}{process.fees.mode ? ` (${process.fees.mode})` : ""}</p>}
+                {(process.officialLink || process.steps?.officialLink) && <a href={process.officialLink || process.steps.officialLink} target="_blank" rel="noreferrer" className="inline-block font-bold text-blue-700 underline">Official details</a>}
+              </div>
+            </section>;
+          })}
 
           {/* Syllabus Table */}
           <section className="bg-white border border-gray-200 overflow-hidden">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[#FF9933]" />
-              <h2 className="text-[15px] font-bold uppercase tracking-wider">Syllabus & Curriculum Structure</h2>
+              <h2 className="text-[15px] font-bold uppercase tracking-wider">{databaseSubjects.length ? "Subjects & Syllabus" : "Syllabus & Curriculum Structure"}</h2>
             </div>
-            <div className="overflow-x-auto">
+            {databaseSubjects.length ? <div>
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-[13px]">
+                <thead className="border-b border-gray-200 bg-[#f6f3ea] text-[#0b1f5e]"><tr><th className="p-3 text-left">Subject</th><th className="p-3 text-left">Departments</th><th className="p-3 text-left">Type</th><th className="p-3 text-left">Description / Syllabus</th></tr></thead>
+                <tbody>{databaseSubjects.map((subject, index) => <tr key={subject._id || index} className="border-b border-gray-200 align-top hover:bg-gray-50"><td className="p-3 font-bold text-[#0b1f5e]">{subject.name}</td><td className="p-3 text-gray-700">{subject.departments?.length ? subject.departments.join(", ") : "All departments"}</td><td className="p-3 text-gray-700">{subject.type?.join(", ") || "—"}</td><td className="p-3 text-gray-700">{subject.description && <p>{subject.description}</p>}{subject.syllabus?.length > 0 && <ul className="mt-1 list-disc space-y-1 pl-5">{subject.syllabus.map((unit, unitIndex) => <li key={unitIndex}>{unit}</li>)}</ul>}{!subject.description && !subject.syllabus?.length && "—"}</td></tr>)}</tbody>
+              </table>
+              </div>
+              {curriculumUrl && <div className="border-t border-gray-100 p-5 text-[14px] leading-7 text-gray-700">{/^https?:\/\//i.test(curriculumUrl) ? <a href={curriculumUrl} target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Open curriculum and syllabus</a> : <p className="whitespace-pre-line">{curriculumUrl}</p>}</div>}
+            </div> : curriculumUrl ? <div className="p-6 text-[14px] leading-7 text-gray-700">{/^https?:\/\//i.test(curriculumUrl) ? <a href={curriculumUrl} target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Open curriculum and syllabus</a> : <p className="whitespace-pre-line">{curriculumUrl}</p>}</div> : <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse">
                 <thead className="bg-[#f6f3ea] text-[#0b1f5e] border-b border-gray-200">
                   <tr>
@@ -198,7 +263,7 @@ export default function AcademicsPage({ onNavigate }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div>}
           </section>
 
           {/* Grading System */}
@@ -233,9 +298,9 @@ export default function AcademicsPage({ onNavigate }) {
           <section className="bg-white border border-gray-200">
             <div className="bg-[#0f172b] text-white px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-[#FF9933]" />
-              <h2 className="text-[15px] font-bold uppercase tracking-wider">Academic Calendar 2024-25</h2>
+              <h2 className="text-[15px] font-bold uppercase tracking-wider">Academic Calendar</h2>
             </div>
-            <ul className="divide-y divide-gray-100">
+            {databaseAcademic?.academicCalendar ? <div className="whitespace-pre-line p-5 text-[14px] leading-7 text-gray-700">{/^https?:\/\//i.test(databaseAcademic.academicCalendar) ? <a href={databaseAcademic.academicCalendar} target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Open academic calendar</a> : databaseAcademic.academicCalendar}</div> : <ul className="divide-y divide-gray-100">
               {calendarData.map((item, i) => (
                 <li key={i} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
                   <div className="w-16 h-16 flex-shrink-0 flex flex-col items-center justify-center bg-[#f6f3ea] border border-gray-200 text-[#0b1f5e]">
@@ -248,7 +313,7 @@ export default function AcademicsPage({ onNavigate }) {
                   </div>
                 </li>
               ))}
-            </ul>
+            </ul>}
           </section>
 
         </main>
@@ -260,14 +325,27 @@ export default function AcademicsPage({ onNavigate }) {
           <div className="bg-white border border-gray-200">
             <div className="bg-[#0f172b] text-white px-4 py-3 border-b border-gray-200 flex items-center gap-2">
               <ClipboardList className="w-4 h-4 text-[#FF9933]" />
-              <h3 className="text-[14px] font-bold uppercase tracking-wider">Examination Rules</h3>
+              <h3 className="text-[14px] font-bold uppercase tracking-wider">{databaseExamination?.title || "Examination Rules"}</h3>
             </div>
             <div className="p-5 text-[13px] text-gray-700 space-y-3">
-              <p className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-0.5" /> Minimum 75% attendance required to appear in SBTE exams.</p>
-              <p className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-0.5" /> Internal assessment carries 20% marks; External exam carries 80%.</p>
-              <p className="flex gap-2"><AlertCircle className="w-4 h-4 text-[#FF9933] flex-shrink-0 mt-0.5" /> Use of unfair means in exams leads to disqualification as per SBTE norms.</p>
+              {databaseExamination?.description && <p>{databaseExamination.description}</p>}
+              {examItems.length ? examItems.map((item, index) => <p key={index} className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-0.5" /><span><b>{item.title}</b>{item.description ? ` — ${item.description}` : ""}</span></p>) : <>
+                <p className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-0.5" /> Minimum 75% attendance required to appear in SBTE exams.</p>
+                <p className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0 mt-0.5" /> Internal assessment carries 20% marks; External exam carries 80%.</p>
+                <p className="flex gap-2"><AlertCircle className="w-4 h-4 text-[#FF9933] flex-shrink-0 mt-0.5" /> Use of unfair means in exams leads to disqualification as per SBTE norms.</p>
+              </>}
+              {evaluationMethods.length > 0 && <div className="border-t border-gray-100 pt-3">
+                <h4 className="mb-2 font-bold text-[#0b1f5e]">Evaluation methods</h4>
+                {evaluationMethods.map((item, index) => <p key={index} className="mb-2">{item.title && <b>{item.title}{item.description ? ": " : ""}</b>}{item.description}</p>)}
+              </div>}
+              {databaseExamination?.officialLink && <a href={databaseExamination.officialLink} target="_blank" rel="noreferrer" className="inline-block pt-1 font-bold text-blue-700 underline">Official examination information</a>}
             </div>
           </div>
+
+          {databaseAcademic?.disciplinaryRules && <div className="border border-gray-200 bg-white">
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-[#0f172b] px-4 py-3 text-white"><AlertCircle className="h-4 w-4 text-[#FF9933]" /><h3 className="text-[14px] font-bold uppercase tracking-wider">Disciplinary Rules</h3></div>
+            <div className="whitespace-pre-line p-5 text-[13px] leading-relaxed text-gray-700">{databaseAcademic.disciplinaryRules}</div>
+          </div>}
 
           {/* Academic Resources Box */}
           <div className="bg-white border border-gray-200">

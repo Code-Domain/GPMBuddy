@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { Bell, FileText, Download, Search, Calendar, Archive, Filter, ChevronRight, Phone, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, FileText, Download, Search, Calendar, Archive, Filter, ChevronRight, Phone, Mail, MapPin } from "lucide-react";
+import api from "../../services/api";
+import { unwrapApiData } from "../../services/publicContent";
 
 export default function NoticePage() {
-  const allNotices = [
+  const staticNotices = [
     { id: 1, date: "12 Jun 2025", day: "12", month: "Jun", year: "2025", title: "Admission Notification for Diploma 1st Year 2025-26", desc: "Online applications are invited for admission into various diploma branches. Last date to apply is 30th June 2025.", category: "Admission", tag: "NEW", size: "1.2 MB" },
     { id: 2, date: "10 Jun 2025", day: "10", month: "Jun", year: "2025", title: "Internal Assessment Exam Schedule (Even Semester)", desc: "The internal assessment examinations for the even semester will commence from 20th June. Check department-wise schedule.", category: "Examination", tag: "NEW", size: "850 KB" },
     { id: 3, date: "08 Jun 2025", day: "08", month: "Jun", year: "2025", title: "SBTE Bihar Revised Academic Calendar 2025-26", desc: "The State Board of Technical Education has released the revised academic calendar for the upcoming session.", category: "General", tag: "IMP", size: "2.1 MB" },
@@ -13,13 +15,44 @@ export default function NoticePage() {
     { id: 8, date: "18 May 2025", day: "18", month: "May", year: "2025", title: "Guest Faculty Vacancy - Leather Technology Dept", desc: "Walk-in interview for the post of Guest Faculty in the Leather Technology department on 25th May 2025.", category: "Recruitment", tag: "OLD", size: "750 KB" },
   ];
 
+  const [databaseEvents, setDatabaseEvents] = useState([]);
+  useEffect(() => {
+    let active = true;
+    api.get("/events").then((response) => {
+      const data = unwrapApiData(response);
+      if (active && Array.isArray(data)) setDatabaseEvents(data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const eventNotices = databaseEvents.map((event) => {
+    const date = event.date ? new Date(event.date) : null;
+    const validDate = date && !Number.isNaN(date.getTime());
+    return {
+      id: event._id || event.id || event.title,
+      date: validDate ? date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Date not provided",
+      day: validDate ? date.toLocaleDateString("en-IN", { day: "2-digit" }) : "—",
+      month: validDate ? date.toLocaleDateString("en-IN", { month: "short" }) : "Event",
+      year: validDate ? date.getFullYear() : "",
+      title: event.title,
+      desc: event.description || "",
+      category: "Events",
+      tag: validDate && date >= new Date(new Date().setHours(0, 0, 0, 0)) ? "NEW" : "IMP",
+      venue: event.venue || "",
+      time: event.time || "",
+    };
+  });
+  const allNotices = databaseEvents.length
+    ? [...staticNotices.filter((notice) => notice.category !== "Events"), ...eventNotices]
+    : staticNotices;
+
   const categories = ["All", "Admission", "Examination", "Academic", "Scholarship", "Events", "Recruitment", "General"];
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredNotices = allNotices.filter(notice => {
     const matchesCategory = activeCategory === "All" || notice.category === activeCategory;
-    const matchesSearch = notice.title.toLowerCase().includes(searchQuery.toLowerCase()) || notice.desc.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (notice.title || "").toLowerCase().includes(searchQuery.toLowerCase()) || (notice.desc || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -133,7 +166,8 @@ export default function NoticePage() {
                       <p className="text-[13px] text-gray-600 leading-relaxed mt-1 text-justify">{n.desc}</p>
                       <div className="flex items-center gap-4 mt-3 text-[12px] text-gray-500">
                         <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {n.date}</span>
-                        <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> {n.size}</span>
+                        {n.time && <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {n.time}</span>}
+                        {n.venue ? <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {n.venue}</span> : <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> {n.size}</span>}
                       </div>
                     </div>
 
