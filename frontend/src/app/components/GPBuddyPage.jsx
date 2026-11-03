@@ -82,6 +82,7 @@ const getTime = () =>
 // component, now applied uniformly to every markdown image.
 function AnswerImage({ src, alt }) {
   const [failed, setFailed] = useState(false);
+  const imageSrc = src ? resolveImageSrc(src) : "";
 
   if (!src || failed) {
     return null;
@@ -89,11 +90,12 @@ function AnswerImage({ src, alt }) {
 
   return (
     <img
-      src={resolveImageSrc(src)}
-      alt={alt}
+      src={imageSrc}
+      alt={alt || "Image shared by GP Buddy"}
       loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
-      className="rounded-xl w-[180px] my-2 border border-gray-200"
+      className="my-2 block max-h-[420px] max-w-full cursor-zoom-in rounded-xl border border-gray-200 object-contain"
     />
   );
 }

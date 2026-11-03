@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity, BookOpen, Building2, CalendarDays, ChevronRight, CircleHelp,
-  FileUp, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search,
+  ArrowLeft, Eye, FileUp, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search,
   ShieldCheck, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import api from "../../../services/api";
@@ -53,7 +53,7 @@ const CONFIG = {
       ["intake", "Intake", "number"], ["vision", "Vision", "textarea"],
       ["mission", "Mission (one item per line)", "list"], ["peo", "PEOs (one item per line)", "list"],
       ["po", "POs (one item per line)", "list"], ["pso", "PSOs (one item per line)", "list"],
-      ["headOfDepartment", "Head of department (faculty name or ID)", "text"],
+      ["headOfDepartment", "HOD name", "text"],
     ],
   },
   events: {
@@ -105,7 +105,7 @@ const CONFIG = {
     ],
   },
   aboutUs: {
-    endpoint: "/about", update: (id) => `/about/update/${id}`,
+    endpoint: "/about", create: "/about/create", update: (id) => `/about/update/${id}`,
     fields: [
       ["history", "College history", "textarea", true], ["vision", "Vision", "textarea", true],
       ["mission", "Mission", "textarea", true], ["principalMessage", "Principal message", "textarea", true],
@@ -113,6 +113,7 @@ const CONFIG = {
     ],
   },
   faqs: {
+    create: true,
     fields: [["question", "Question", "text", true], ["answer", "Answer", "textarea", true]],
   },
   uploads: {
@@ -265,6 +266,7 @@ export default function AdminPanel() {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
+  const [viewRecord, setViewRecord] = useState(null);
   const [form, setForm] = useState({});
   const [mobileNav, setMobileNav] = useState(false);
 
@@ -360,12 +362,14 @@ export default function AdminPanel() {
 
   const openCreate = () => {
     if (!CONFIG[active].create) return;
+    setViewRecord(null);
     setForm(initialForm(active));
     setModal({ section: active, record: null });
     setNotice("");
   };
 
   const openEdit = (record) => {
+    setViewRecord(null);
     setForm(initialForm(active, record));
     setModal({ section: active, record });
     setNotice("");
@@ -434,6 +438,11 @@ export default function AdminPanel() {
     navigate("/login", { replace: true });
   };
 
+  const backToSite = () => {
+    setMobileNav(false);
+    navigate("/");
+  };
+
   const saveProfile = (event) => {
     event.preventDefault();
     setProfileSaving(true);
@@ -480,6 +489,7 @@ export default function AdminPanel() {
   };
 
   const selectSection = (id) => {
+    setViewRecord(null);
     setActive(id);
     setSearch("");
     setNotice("");
@@ -514,6 +524,9 @@ export default function AdminPanel() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-3">
+          <button onClick={backToSite} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
+            <ArrowLeft size={17} /><span>Back to Site</span>
+          </button>
           <button onClick={() => selectSection("profile")} className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold ${active === "profile" ? "bg-white/10 text-amber-300" : "text-slate-300 hover:bg-white/5 hover:text-white"}`}>
             <UserRound size={17} /><span>Profile</span>
           </button>
@@ -571,15 +584,17 @@ export default function AdminPanel() {
           </div>}
 
           {active !== "dashboard" && active !== "profile" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Edit the existing About Us content. The backend create route is unavailable." : active === "departments" ? "Department records are fetched directly from the database." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "Faculty" : active === "facilities" ? "Facility" : active.slice(0, -1)}`}</button>}</div></div>
+            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Manage the About Us content stored by the backend." : active === "departments" ? "Department records are fetched directly from the database." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "Faculty" : active === "facilities" ? "Facility" : active === "aboutUs" ? "About Us" : active.slice(0, -1)}`}</button>}</div></div>
             <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 sm:px-6"><Search size={16} className="text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${LABELS[active].toLowerCase()}…`} className="w-full bg-transparent text-[13px] outline-none placeholder:text-slate-400" /></div>
             <div className="overflow-x-auto">
-              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">No {LABELS[active].toLowerCase()} found</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && records.departments.length === 0 ? "The API returned no department records. Check that this account is allowed to read the department list." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[680px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
+              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">No {LABELS[active].toLowerCase()} found</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && records.departments.length === 0 ? "The API returned no department records. Check that this account is allowed to read the department list." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[760px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onView={() => setViewRecord({ section: active, record })} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
             </div>
             <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500 sm:px-6">Showing {filtered.length} of {records[active]?.length || 0} records</div>
           </section>}
         </div>
       </main>
+
+      {viewRecord && <RecordViewModal section={viewRecord.section} record={viewRecord.record} onClose={() => setViewRecord(null)} onEdit={() => openEdit(viewRecord.record)} />}
 
       {modal && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModal(null); }}><form onSubmit={save} className="my-auto max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6"><div><h2 className="font-extrabold text-[#12203a]">Edit {modal.section === "faqs" ? "FAQ" : modal.section === "faculties" ? "Faculty" : modal.section === "facilities" ? "Facility" : modal.section === "aboutUs" ? "About Us" : modal.section.slice(0, -1)}</h2><p className="mt-1 text-[11px] text-slate-500">Fields marked required must be completed.</p></div><button type="button" onClick={() => setModal(null)} disabled={busy} aria-label="Close dialog" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">{CONFIG[modal.section].fields.map(([key, label, type, required]) => { if (modal.section === "admins" && modal.record && key === "password") return null; const large = ["textarea", "list", "json"].includes(type); const selectOptions = key === "role" ? [["admin", "Admin"], ["super_admin", "Super Admin"]] : key === "locationType" ? [["Campus", "Campus"], ["Off-Campus", "Off-Campus"]] : [["Available", "Available"], ["Temporarily Closed", "Temporarily Closed"], ["Under Maintenance", "Under Maintenance"]]; return <label key={key} className={large ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}{required && <em className="ml-1 not-italic text-red-500">*</em>}</span>{type === "file" ? <FileInput value={form[key]} hasExisting={!!modal.record} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : type === "list" ? <ArrayInput values={form[key]} required={required} label={label} onChange={(value) => setForm((previous) => ({ ...previous, [key]: value }))} /> : large ? <textarea rows={type === "json" ? 7 : 4} required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" /> : type === "select" ? <select required={required} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"><option value="" disabled>Select {label.toLowerCase()}</option>{selectOptions.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type={type} required={required} min={type === "number" ? 0 : undefined} value={form[key] ?? ""} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />}</label>; })}</div><div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={() => setModal(null)} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-60">{busy ? "Saving…" : "Save record"}</button></div></form></div>}
     </div>
@@ -615,7 +630,7 @@ function FileInput({ value, onChange, hasExisting }) {
   );
 }
 
-function RecordRow({ section, record, currentAdminId, onEdit, onDelete, busy }) {
+function RecordRow({ section, record, currentAdminId, onView, onEdit, onDelete, busy }) {
   const titleKey = { admins: "username", departments: "name", events: "title", faculties: "name", facilities: "name", subjects: "name", aboutUs: "history", faqs: "question", uploads: "fileName" }[section];
   const detailKeys = {
     admins: ["name", "designation", "role"], departments: ["code", "established", "intake"],
@@ -626,7 +641,52 @@ function RecordRow({ section, record, currentAdminId, onEdit, onDelete, busy }) 
   }[section];
   const stamp = record.updatedAt || record.createdAt;
   const isCurrentAdmin = section === "admins" && String(getId(record)) === String(currentAdminId);
-  return <tr className="align-top hover:bg-slate-50/70"><td className="max-w-[260px] px-5 py-4 sm:px-6"><b className="block truncate text-slate-800">{section === "aboutUs" ? "About Us content" : formatValue(section, titleKey, record[titleKey])}</b>{section === "uploads" && record.fileUrl && <a href={record.fileUrl} target="_blank" rel="noreferrer" className="mt-1 block truncate text-[10px] text-blue-600 hover:underline">Open file</a>}</td><td className="max-w-[360px] px-4 py-4 text-slate-600"><div className="flex flex-wrap gap-x-4 gap-y-1">{detailKeys.map((key) => <span key={key} className="max-w-[240px] truncate"><span className="text-slate-400">{key === "role" ? "Role" : key === "fileUrl" ? "URL" : key}:</span> {formatValue(section, key, record[key])}</span>)}</div></td><td className="whitespace-nowrap px-4 py-4 text-slate-500">{stamp ? new Date(stamp).toLocaleDateString() : "—"}</td><td className="whitespace-nowrap px-5 py-4 text-right sm:px-6"><button onClick={onEdit} disabled={busy} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold hover:bg-white disabled:opacity-50">Edit</button>{section !== "aboutUs" && <button onClick={onDelete} disabled={busy || isCurrentAdmin} title={isCurrentAdmin ? "You cannot delete your own account" : "Delete record"} className="ml-2 inline-flex items-center gap-1 rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"><Trash2 size={13} /> Delete</button>}</td></tr>;
+  return <tr className="align-top hover:bg-slate-50/70"><td className="max-w-[260px] px-5 py-4 sm:px-6"><b className="block truncate text-slate-800">{section === "aboutUs" ? "About Us content" : formatValue(section, titleKey, record[titleKey])}</b>{section === "uploads" && record.fileUrl && <a href={record.fileUrl} target="_blank" rel="noreferrer" className="mt-1 block truncate text-[10px] text-blue-600 hover:underline">Open file</a>}</td><td className="max-w-[360px] px-4 py-4 text-slate-600"><div className="flex flex-wrap gap-x-4 gap-y-1">{detailKeys.map((key) => <span key={key} className="max-w-[240px] truncate"><span className="text-slate-400">{key === "role" ? "Role" : key === "fileUrl" ? "URL" : key}:</span> {formatValue(section, key, record[key])}</span>)}</div></td><td className="whitespace-nowrap px-4 py-4 text-slate-500">{stamp ? new Date(stamp).toLocaleDateString() : "—"}</td><td className="whitespace-nowrap px-5 py-4 text-right sm:px-6"><div className="inline-flex items-center gap-1.5"><button onClick={onView} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold hover:bg-white disabled:opacity-50"><Eye size={14} /> View</button><button onClick={onEdit} disabled={busy} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold hover:bg-white disabled:opacity-50">Edit</button>{section !== "aboutUs" && <button onClick={onDelete} disabled={busy || isCurrentAdmin} title={isCurrentAdmin ? "You cannot delete your own account" : "Delete record"} className="inline-flex items-center gap-1 rounded-lg border border-red-100 px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"><Trash2 size={13} /> Delete</button>}</div></td></tr>;
+}
+
+function RecordViewModal({ section, record, onClose, onEdit }) {
+  const titleKey = { admins: "username", departments: "name", events: "title", faculties: "name", facilities: "name", subjects: "name", aboutUs: "history", faqs: "question", uploads: "fileName" }[section];
+  const title = section === "aboutUs" ? "About Us content" : formatValue(section, titleKey, record[titleKey]);
+  const photoUrl = section === "faculties" && record.profileImage?.contentType && getId(record)
+    ? `${api.defaults.baseURL}/faculty/id/${getId(record)}/image`
+    : "";
+
+  return <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="record-view-title" className="my-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6">
+        <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{LABELS[section]} · Record details</p><h2 id="record-view-title" className="mt-1 truncate text-lg font-extrabold text-[#12203a]">{title}</h2></div>
+        <button type="button" onClick={onClose} aria-label="Close record details" className="rounded-lg p-2 hover:bg-slate-100"><X size={18} /></button>
+      </div>
+      <div className="space-y-5 p-5 sm:p-6">
+        {photoUrl && <div className="flex justify-center rounded-xl bg-slate-50 p-4"><img src={photoUrl} alt={`Profile of ${record.name || "faculty member"}`} className="max-h-72 max-w-full rounded-xl object-contain" /></div>}
+        <dl className="grid gap-3 sm:grid-cols-2">{Object.entries(record).filter(([key]) => key !== "__v" && key !== "profileImage" && key !== "password").map(([key, value]) => <div key={key} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+          <dt className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{key === "headOfDepartment" ? "HOD name" : humanizeField(key)}</dt>
+          <dd className="break-words text-[13px] leading-5 text-slate-700"><RecordValue value={key === "headOfDepartment" ? (value?.name || value) : value} /></dd>
+        </div>)}</dl>
+        {record.profileImage && !photoUrl && <p className="rounded-xl bg-slate-50 p-3 text-[12px] text-slate-500">A profile photo is not available for this record.</p>}
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-6"><button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] font-bold hover:bg-slate-50">Close</button><button type="button" onClick={onEdit} className="rounded-xl bg-[#142342] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#20365e]">Edit this record</button></div>
+    </section>
+  </div>;
+}
+
+function RecordValue({ value }) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (Array.isArray(value)) {
+    if (!value.length) return "—";
+    return <ul className="list-disc space-y-1 pl-5">{value.map((item, index) => <li key={index}><RecordValue value={item} /></li>)}</ul>;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value).filter(([key]) => key !== "__v" && key !== "data");
+    if (!entries.length) return "—";
+    return <dl className="space-y-1.5">{entries.map(([key, nested]) => <div key={key}><dt className="inline font-semibold text-slate-500">{humanizeField(key)}: </dt><dd className="inline"><RecordValue value={nested} /></dd></div>)}</dl>;
+  }
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function humanizeField(value) {
+  return String(value).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
 function ProfileItem({ label, value }) {
