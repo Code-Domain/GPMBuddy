@@ -127,16 +127,6 @@ export default function HeroSection() {
     { name: "Leather Technology", path: "dept-leather", img: "https://picsum.photos/seed/gpm-dept-leather/600/400", desc: "A flagship department — leather processing, footwear design, quality control and tannery management." },
   ];
 
-  const placementData = [
-    { year: "2024-25", eligible: 312, placed: 286, percent: "91.7%", ctc: "₹8.4 LPA", width: "91%" },
-    { year: "2023-24", eligible: 298, placed: 263, percent: "88.3%", ctc: "₹7.8 LPA", width: "88%" },
-    { year: "2022-23", eligible: 281, placed: 241, percent: "85.8%", ctc: "₹7.2 LPA", width: "85%" },
-    { year: "2021-22", eligible: 264, placed: 218, percent: "82.6%", ctc: "₹6.5 LPA", width: "82%" },
-    { year: "2020-21", eligible: 248, placed: 196, percent: "79.0%", ctc: "₹5.8 LPA", width: "79%" },
-  ];
-
-  const recruiters = ["TCS", "Infosys", "L&T", "Bajaj", "Mahindra", "ITC", "Tata Motors", "Sail", "BSNL", "BEL", "Wipro", "Capgemini"];
-
   const displayDepartments = databaseDepartments.length
     ? databaseDepartments.map((department) => {
       const path = departmentRouteId(department);
@@ -503,63 +493,6 @@ export default function HeroSection() {
           </div>
         </div>
       </section>}
-
-      {/* ===================== PLACEMENTS SNAPSHOT ===================== */}
-      <section className="py-16 bg-slate-50 reveal">
-        <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-full text-[12px] font-bold uppercase tracking-wider mb-4">
-              <Icon.Award className="w-3.5 h-3.5" /> Placements Snapshot
-            </div>
-            <h2 className="text-[32px] sm:text-[40px] font-extrabold text-[#0b1f5e]" style={{ letterSpacing: "-0.02em" }}>
-              Where our engineers go next.
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8">
-            {/* Modern Placement Cards instead of Table */}
-            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-              <h3 className="text-[18px] font-extrabold text-[#0b1f5e] mb-6 flex items-center gap-2">
-                <span className="bg-indigo-50 p-2 rounded-xl text-indigo-600"><Icon.Award className="w-5 h-5" /></span>
-                Placement Records (Last 5 Years)
-              </h3>
-              <div className="space-y-6">
-                {placementData.map((r) => (
-                  <div key={r.year} className="grid grid-cols-[100px_1fr_auto] items-center gap-4">
-                    <div className="text-[16px] font-bold text-slate-700">{r.year}</div>
-                    <div className="w-full">
-                      <div className="flex justify-between text-[13px] mb-1.5">
-                        <span className="text-slate-500 font-medium">{r.placed} / {r.eligible} placed</span>
-                        <span className="font-bold text-emerald-500">{r.percent}</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2.5">
-                        <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-2.5 rounded-full transition-all duration-1000" style={{ width: r.width }}></div>
-                      </div>
-                    </div>
-                    <div className="text-[14px] font-extrabold text-[#FF9933] bg-amber-50 px-3 py-1.5 rounded-lg">{r.ctc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-6">
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm h-full">
-                <h3 className="text-[18px] font-extrabold text-[#0b1f5e] mb-6 flex items-center gap-2">
-                  <span className="bg-purple-50 p-2 rounded-xl text-purple-600"><Icon.Briefcase className="w-5 h-5" /></span>
-                  Top Recruiters
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  {recruiters.map((r) => (
-                    <div key={r} className="bg-slate-50 border border-slate-100 px-2 py-4 text-center text-[13px] font-bold text-slate-600 rounded-xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors cursor-default">
-                      {r}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ============ STYLES (keyframes + reveal) ============ */}
       <style>{`

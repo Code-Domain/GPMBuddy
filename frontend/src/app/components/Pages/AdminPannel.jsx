@@ -13,7 +13,7 @@ const NAV = [
   { id: "admins", label: "Admins", icon: ShieldCheck, superOnly: true },
   { id: "departments", label: "Departments", icon: Building2 },
   { id: "events", label: "Events", icon: CalendarDays },
-  { id: "faculties", label: "Faculties", icon: Users },
+  { id: "faculties", label: "Faculty", icon: Users },
   { id: "facilities", label: "Facilities", icon: Building2 },
   { id: "subjects", label: "Subjects", icon: BookOpen },
   { id: "aboutUs", label: "About Us", icon: CircleHelp },
@@ -28,8 +28,20 @@ const EMPTY = {
 
 const LABELS = {
   admins: "Admins", departments: "Departments", events: "Events",
-  faculties: "Faculties", facilities: "Facilities", subjects: "Subjects",
+  faculties: "Faculty", facilities: "Facilities", subjects: "Subjects",
   aboutUs: "About Us", faqs: "FAQs", uploads: "Uploads",
+};
+
+const SAVED_LABELS = {
+  admins: "Admin",
+  departments: "Department",
+  events: "Event",
+  faculties: "Faculty record",
+  facilities: "Facility",
+  subjects: "Subject",
+  aboutUs: "About Us",
+  faqs: "FAQ",
+  uploads: "Upload",
 };
 
 const CONFIG = {
@@ -109,7 +121,7 @@ const CONFIG = {
     fields: [
       ["history", "College history", "textarea", true], ["vision", "Vision", "textarea", true],
       ["mission", "Mission", "textarea", true], ["principalMessage", "Principal message", "textarea", true],
-      ["principal", "Principal faculty ID", "text", true], ["achievements", "Achievements (JSON array)", "json"],
+      ["principal", "Principal name", "text", true], ["achievements", "Achievements (JSON array)", "json"],
     ],
   },
   faqs: {
@@ -169,10 +181,10 @@ const initialForm = (section, record) => {
     let value = source?.[key];
     if (value && typeof value === "object") {
     if (key === "department") {
-        value = value.name || value.code || value._id || "";
+        value = value.name || value.code || "";
     } 
-    else if (key === "headOfDepartment" || "principal") {
-        value = value.name || value._id || "";
+    else if (key === "headOfDepartment" || key==="principal") {
+        value = value.name ||  "";
     } 
 }
     if (Array.isArray(value)) {
@@ -404,7 +416,7 @@ export default function AdminPanel() {
         await loadAll();
       }
       setModal(null);
-      setNotice(`${LABELS[modal.section].slice(0, -1)} saved.`);
+      setNotice(`${SAVED_LABELS[modal.section]} saved.`);
     } catch (err) {
       setNotice(err.response?.data?.message || err.message || "Could not save this record.");
     } finally {
@@ -584,10 +596,10 @@ export default function AdminPanel() {
           </div>}
 
           {active !== "dashboard" && active !== "profile" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Manage the About Us content stored by the backend." : active === "departments" ? "Department records are fetched directly from the database." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "Faculty" : active === "facilities" ? "Facility" : active === "aboutUs" ? "About Us" : active.slice(0, -1)}`}</button>}</div></div>
+            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><h2 className="text-lg font-extrabold text-[#12203a]">{active === "faqs" ? "Frequently asked questions" : `${LABELS[active]} management`}</h2><p className="mt-1 text-[12px] text-slate-500">{active === "faqs" ? "FAQ records are stored in this browser because the backend has no FAQ API." : active === "uploads" ? "Manage file metadata and URLs. The backend does not receive file contents." : active === "admins" ? "Create and manage Admin and Super Admin accounts." : active === "aboutUs" ? "Manage the About Us content stored by the backend." : active === "departments" ? "Department records are fetched directly from the database." : `Create, update, and remove ${LABELS[active].toLowerCase()} records.`}</p></div><div className="flex gap-2"><button onClick={() => loadAll().catch((err) => setError(err.message))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[12px] font-semibold hover:bg-slate-50"><RefreshCw size={15} /> Refresh</button>{CONFIG[active].create && <button onClick={openCreate} disabled={busy || (active === "admins" && !isSuper)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#142342] px-4 text-[12px] font-bold text-white hover:bg-[#20365e] disabled:opacity-50"><Plus size={16} /> {active === "admins" ? "Add account" : `Add ${active === "faqs" ? "FAQ" : active === "faculties" ? "faculty member" : active === "facilities" ? "Facility" : active === "aboutUs" ? "About Us" : active.slice(0, -1)}`}</button>}</div></div>
             <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 sm:px-6"><Search size={16} className="text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${LABELS[active].toLowerCase()}…`} className="w-full bg-transparent text-[13px] outline-none placeholder:text-slate-400" /></div>
             <div className="overflow-x-auto">
-              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">No {LABELS[active].toLowerCase()} found</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && records.departments.length === 0 ? "The API returned no department records. Check that this account is allowed to read the department list." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[760px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onView={() => setViewRecord({ section: active, record })} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
+              {filtered.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400"><BookOpen size={20} /></div><p className="text-[13px] font-semibold text-slate-700">{active === "faculties" ? "No faculty records found" : `No ${LABELS[active].toLowerCase()} found`}</p><p className="mt-1 text-[11px] text-slate-500">{active === "aboutUs" ? "No About Us record is available to edit." : active === "departments" && records.departments.length === 0 ? "The API returned no department records. Check that this account is allowed to read the department list." : "Add a record or change the search term."}</p></div> : <table className="w-full min-w-[760px] text-left text-[12px]"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 sm:px-6">Record</th><th className="px-4 py-3">Details</th><th className="px-4 py-3">Updated</th><th className="px-5 py-3 text-right sm:px-6">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((record, index) => <RecordRow key={getId(record) || index} section={active} record={record} currentAdminId={profile.id} onView={() => setViewRecord({ section: active, record })} onEdit={() => openEdit(record)} onDelete={() => remove(record)} busy={busy} />)}</tbody></table>}
             </div>
             <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500 sm:px-6">Showing {filtered.length} of {records[active]?.length || 0} records</div>
           </section>}
@@ -659,7 +671,7 @@ function RecordViewModal({ section, record, onClose, onEdit }) {
       </div>
       <div className="space-y-5 p-5 sm:p-6">
         {photoUrl && <div className="flex justify-center rounded-xl bg-slate-50 p-4"><img src={photoUrl} alt={`Profile of ${record.name || "faculty member"}`} className="max-h-72 max-w-full rounded-xl object-contain" /></div>}
-        <dl className="grid gap-3 sm:grid-cols-2">{Object.entries(record).filter(([key]) => key !== "__v" && key !== "profileImage" && key !== "password").map(([key, value]) => <div key={key} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+        <dl className="grid gap-3 sm:grid-cols-2">{Object.entries(record).filter(([key]) => !["_id", "id", "__v", "profileImage", "password"].includes(key)).map(([key, value]) => <div key={key} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
           <dt className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{key === "headOfDepartment" ? "HOD name" : humanizeField(key)}</dt>
           <dd className="break-words text-[13px] leading-5 text-slate-700"><RecordValue value={key === "headOfDepartment" ? (value?.name || value) : value} /></dd>
         </div>)}</dl>
@@ -677,11 +689,12 @@ function RecordValue({ value }) {
     return <ul className="list-disc space-y-1 pl-5">{value.map((item, index) => <li key={index}><RecordValue value={item} /></li>)}</ul>;
   }
   if (typeof value === "object") {
-    const entries = Object.entries(value).filter(([key]) => key !== "__v" && key !== "data");
+    const entries = Object.entries(value).filter(([key]) => !["_id", "id", "__v", "data"].includes(key));
     if (!entries.length) return "—";
     return <dl className="space-y-1.5">{entries.map(([key, nested]) => <div key={key}><dt className="inline font-semibold text-slate-500">{humanizeField(key)}: </dt><dd className="inline"><RecordValue value={nested} /></dd></div>)}</dl>;
   }
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" && /^[a-f\d]{24}$/i.test(value)) return "—";
   return String(value);
 }
 

@@ -255,7 +255,6 @@
 // export default Navbar;
 
 
-import image_poly from "@/imports/poly.jpg";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Bot, ChevronDown, LogIn } from "lucide-react";
@@ -357,7 +356,7 @@ export function Navbar() {
           <button onClick={() => onNavigate("home")} className="flex min-w-0 items-center gap-2 sm:gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 rounded-full blur-[8px] opacity-30 group-hover:opacity-50 transition-opacity"></div>
-              <img src={image_poly} alt="GPM Logo" className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 object-contain rounded-2xl" />
+              <img src="/gpmbuddy-brand.png" alt="GPM Buddy" className="relative h-11 w-11 shrink-0 rounded-xl object-cover sm:h-12 sm:w-12" />
             </div>
             <div className="min-w-0 text-left">
               <h1 className="whitespace-nowrap text-[13px] sm:text-[18px] font-extrabold leading-tight text-gray-800" style={{ letterSpacing: "-0.02em" }}>
@@ -403,7 +402,7 @@ export function Navbar() {
           
           {/* Collapsed Logo (Shows on scroll) */}
           <button onClick={() => onNavigate("home")} className={`flex items-center gap-2 transition-all ${scrolled ? "block py-3" : "hidden"}`}>
-            <img src={image_poly} alt="GPM Logo" className="w-8 h-8 object-contain" />
+            <img src="/gpmbuddy-brand.png" alt="GPM Buddy" className="h-8 w-8 rounded-lg object-cover" />
             <span className="font-extrabold text-slate-900 text-[15px] tracking-tight">GPM Muzaffarpur</span>
           </button>
 

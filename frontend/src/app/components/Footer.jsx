@@ -1,4 +1,3 @@
-import image_poly from "@/imports/poly.jpg";
 import { useEffect, useState } from "react";
 import { Mail, Phone, MapPin, Bot, ChevronDown, ArrowUp } from "lucide-react";
 import api from "../../services/api";
@@ -61,10 +60,9 @@ export function Footer() {
           {/* Column 1: Brand & Description */}
           <div className="space-y-5">
             <button onClick={() => onNavigate("home")} className="flex items-center gap-3 group">
-              {/* Added a placeholder div for logo since we don't have your image_poly import here */}
               <div className="relative">
                 <div className="absolute inset-0 rounded-2xl blur-[8px] opacity-30 group-hover:opacity-50 transition-opacity"></div>
-                <img src={image_poly} alt="GPM Logo" className="relative w-11 h-11 sm:w-12 sm:h-12 object-contain rounded-2xl" />
+                <img src="/gpmbuddy-brand.png" alt="GPM Buddy" className="relative h-11 w-11 rounded-xl object-cover sm:h-12 sm:w-12" />
               </div>
               <div className="text-left">
                 <h1 className="text-[16px] font-extrabold leading-tight text-white" style={{ letterSpacing: "-0.02em" }}>
